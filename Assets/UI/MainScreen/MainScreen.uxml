@@ -1,0 +1,31 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI/MainScreen/MainScreen.uss?fileID=7433441132597879392&amp;guid=24ff0ccd33fca8f4d9a17e27d3a6b7d4&amp;type=3#MainScreen"/>
+    <ui:VisualElement picking-mode="Ignore" class="main-screen frame absolute">
+        <ui:VisualElement picking-mode="Ignore" class="main-screen__background frame absolute"/>
+        <ui:VisualElement picking-mode="Ignore" class="frame absolute">
+            <ui:VisualElement picking-mode="Ignore" class="main-screen__header header row padded">
+                <ui:VisualElement class="board-placeholder__profile-switcher"/>
+                <ui:VisualElement class="main-screen__header__content content row">
+                    <ui:VisualElement class="main-screen__header__logo row">
+                        <ui:VisualElement class="main-screen__logo"/>
+                        <ui:VisualElement class="main-screen__wordmark">
+                            <ui:Label text="Board Enthusiasts" class="main-screen__wordmark__title"/>
+                            <ui:Label text="For Board Players and Builders" class="main-screen__wordmark__subtitle"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="main-screen__nav row">
+                        <ui:VisualElement name="apps" class="main-screen__nav-button"/>
+                        <ui:VisualElement name="bluetooth-settings" class="main-screen__nav-button"/>
+                        <ui:VisualElement name="device-info-settings" class="main-screen__nav-button"/>
+                        <ui:VisualElement name="developer-options" class="main-screen__nav-button"/>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="board-placeholder__settings"/>
+            </ui:VisualElement>
+            <ui:VisualElement picking-mode="Ignore" class="main-screen__content content padded">
+                <ui:Label text="More coming very soon!" class="main-screen__content__welcome"/>
+            </ui:VisualElement>
+            <ui:VisualElement picking-mode="Ignore" class="main-screen__footer footer padded"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

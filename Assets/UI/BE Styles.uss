@@ -1,0 +1,126 @@
+
+:root {
+    /**********************************
+    * Variables
+    **********************************/
+
+    /** Font **/
+    --font-color_primary: rgb(253, 253, 253);
+    --font-color_secondary: rgb(182, 201, 191);
+    --font-size_xxs: 8px;
+    --font-size_xs: 10px;
+    --font-size_s: 14px;
+    --font-size_m: 16px;
+    --font-size_l: 20px;
+    --font-size_xl: 24px;
+    --font-size_xxl: 28px;
+    --font-size_default: var(--font-size_m);
+
+    /** Colors **/
+    --color_brand_mint: rgba(64, 198, 141, 1);
+    --color_brand_mint-bright: rgb(176, 216, 192);
+    --color_brand_mint-deep: rgb(22, 138, 79);
+    --color_brand_dark: rgb(23, 21, 26);
+    --color_brand_dark-deep: rgb(0, 0, 0);
+    
+    --color_main-background: var(--color_brand_dark-deep);
+    --color_header-background: var(--color_brand_dark);
+    
+    --color_button_nav_border: var(--color_brand_mint);
+    --color_button_nav_border-active: var(--color_brand_mint-bright);
+    --color_button_nav_background: var(--color_brand_dark);
+    --color_button_nav_background-active: var(--color_brand_mint);
+    --color_button_nav_icon: var(--color_brand_mint);
+    --color_button_nav_icon-active: var(--color_brand_mint-bright);
+    
+    --color_button_primary_border: var(--color_brand_mint);
+    --color_button_primary_border-active: var(--color_brand_mint);
+    --color_button_primary_background: var(--color_brand_mint);
+    --color_button_primary_background-active: var(--color_brand_mint-bright);
+    
+    /** Textures **/
+    --texture_logo: url("Textures/Icons/be-logo.png");
+
+    /** Icons **/
+    --icon_android: url("Textures/Icons/android_24dp.svg");
+    --icon_apps: url("Textures/Icons/apps_24dp.svg");
+    --icon_code: url("Textures/Icons/code_24dp.svg");
+    --icon_data-object: url("Textures/Icons/data_object_24dp.svg");
+    --icon_devices: url("Textures/Icons/devices_other_24dp.svg");
+    --icon_mobile-info: url("Textures/Icons/mobile_info_24dp.svg");
+    --icon_view-apps: url("Textures/Icons/view_apps_24dp.svg");
+    --icon_setings: url("Textures/Icons/settings_24dp.svg");
+    --icon_bluetooth: url("Textures/Icons/bluetooth_24dp.svg");
+    
+    /** Spacing **/
+    --spacing_default: 16px;
+    
+    color: var(--font-color_primary);
+    font-size: var(--font-size_default);
+}
+
+/**********************************
+* Board Placeholders
+**********************************/
+
+.board-placeholder__profile-switcher {
+    width: 297px;
+    height: 80px;
+}
+
+.board-placeholder__settings {
+    width: 80px;
+    height: 80px;
+}
+
+/**********************************
+* Containers
+**********************************/
+
+.frame {
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+}
+
+.header {
+    top: 0;
+    left: 0;
+    right: 0;
+    flex-grow: 0;
+    flex-shrink: 1;
+}
+
+.content {
+    flex-grow: 1;
+    flex-shrink: 0; 
+}
+
+.footer {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    flex-grow: 0;
+    flex-shrink: 1;
+}
+
+/**********************************
+* Layout Helpers
+**********************************/
+
+.absolute {
+    position: absolute;
+}
+
+.margined {
+    margin: var(--spacing_default);
+}
+
+.padded {
+    padding: var(--spacing_default);
+}
+
+.row {
+    flex-direction: row;
+}

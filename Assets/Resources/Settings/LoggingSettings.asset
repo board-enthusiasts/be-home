@@ -1,0 +1,141 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: efdf2bcbb0064e439956d76ef6f20b3e, type: 3}
+  m_Name: LoggingSettings
+  m_EditorClassIdentifier: Rahmen::Rahmen.Logging.LoggingSettings
+  m_active: 1
+  m_hideCallStack: 0
+  m_standardLogDecorators:
+  - rid: 8537828840323940403
+  - rid: 8537828840323940404
+  - rid: 8537828840323940405
+  - rid: 8537828840323940406
+  - rid: 8537828840323940407
+  - rid: 8537828840323940408
+  m_channels:
+  - rid: 8537828840323940409
+  - rid: 8537828840323940410
+  - rid: 8537828840323940411
+  - rid: 8537828840323940412
+  - rid: 8537828840323940413
+  - rid: 8537828840323940414
+  - rid: 8537828840323940415
+  - rid: 8537828840323940416
+  references:
+    version: 2
+    RefIds:
+    - rid: 8537828840323940403
+      type: {class: UnityTimeDecorator, ns: Rahmen.Logging, asm: Rahmen}
+      data:
+        m_prepend: 1
+        m_openingDelimiter: 
+        m_closingDelimiter: '] '
+    - rid: 8537828840323940404
+      type: {class: SystemTimeDecorator, ns: Rahmen.Logging, asm: Rahmen}
+      data:
+        m_prepend: 1
+        m_openingDelimiter: 
+        m_closingDelimiter: ', '
+        m_useUtcTime: 0
+    - rid: 8537828840323940405
+      type: {class: LogLevelDecorator, ns: Rahmen.Logging, asm: Rahmen}
+      data:
+        m_prepend: 1
+        m_openingDelimiter: 
+        m_closingDelimiter: ' - '
+    - rid: 8537828840323940406
+      type: {class: ChannelDecorator, ns: Rahmen.Logging, asm: Rahmen}
+      data:
+        m_prepend: 1
+        m_openingDelimiter: '['
+        m_closingDelimiter: ': '
+    - rid: 8537828840323940407
+      type: {class: CallerInfoDecorator, ns: Rahmen.Logging, asm: Rahmen}
+      data:
+        m_prepend: 0
+        m_openingDelimiter: '
+
+          ('
+        m_closingDelimiter: ') '
+    - rid: 8537828840323940408
+      type: {class: FullUnityContextDecorator, ns: Rahmen.Logging, asm: Rahmen}
+      data:
+        m_prepend: 0
+        m_openingDelimiter: <
+        m_closingDelimiter: '>'
+    - rid: 8537828840323940409
+      type: {class: LogChannels/BoardEmulation, ns: BE.Emulator, asm: BE.Emulator}
+      data:
+        <DisplayName>k__BackingField: Board Emulation
+        <ActiveLevel>k__BackingField: 2
+        <LogDecorators>k__BackingField: []
+        <UseCustomDecorators>k__BackingField: 0
+        <Description>k__BackingField: Logs relating to emulation of the Board console
+          in the Unity editor.
+    - rid: 8537828840323940410
+      type: {class: Events, ns: Rahmen.Logging.LogChannels, asm: Rahmen.Events}
+      data:
+        <DisplayName>k__BackingField: Events
+        <ActiveLevel>k__BackingField: 3
+        <LogDecorators>k__BackingField: []
+        <UseCustomDecorators>k__BackingField: 0
+        <Description>k__BackingField: Channel for EventSystem logging.
+    - rid: 8537828840323940411
+      type: {class: MockLogChannel_A, ns: Rahmen.Logging, asm: Rahmen}
+      data:
+        <DisplayName>k__BackingField: Mock Log Channel_A
+        <ActiveLevel>k__BackingField: 2
+        <LogDecorators>k__BackingField: []
+        <UseCustomDecorators>k__BackingField: 0
+        <Description>k__BackingField: Mock channel used only in unit tests. Please
+          do not modify this channel.
+    - rid: 8537828840323940412
+      type: {class: MockLogChannel_B, ns: Rahmen.Logging, asm: Rahmen}
+      data:
+        <DisplayName>k__BackingField: Mock Log Channel_B
+        <ActiveLevel>k__BackingField: 2
+        <LogDecorators>k__BackingField: []
+        <UseCustomDecorators>k__BackingField: 0
+        <Description>k__BackingField: Mock channel used only in unit tests. Please
+          do not modify this channel.
+    - rid: 8537828840323940413
+      type: {class: PieceBehaviorSystem, ns: BE.GDK.LogChannels, asm: BE.GDK}
+      data:
+        <DisplayName>k__BackingField: Piece Behavior System
+        <ActiveLevel>k__BackingField: 2
+        <LogDecorators>k__BackingField: []
+        <UseCustomDecorators>k__BackingField: 0
+        <Description>k__BackingField: Channel for PieceBehaviorSystem logging.
+    - rid: 8537828840323940414
+      type: {class: PieceSystem, ns: BE.GDK.LogChannels, asm: BE.GDK}
+      data:
+        <DisplayName>k__BackingField: Piece System
+        <ActiveLevel>k__BackingField: 2
+        <LogDecorators>k__BackingField: []
+        <UseCustomDecorators>k__BackingField: 0
+        <Description>k__BackingField: Channel for PieceSystem logging.
+    - rid: 8537828840323940415
+      type: {class: Rahmen, ns: Rahmen.Logging.LogChannels, asm: Rahmen}
+      data:
+        <DisplayName>k__BackingField: Rahmen
+        <ActiveLevel>k__BackingField: 2
+        <LogDecorators>k__BackingField: []
+        <UseCustomDecorators>k__BackingField: 0
+        <Description>k__BackingField: Base catch-all channel for Rahmen
+    - rid: 8537828840323940416
+      type: {class: UiFramework, ns: BE.GDK.LogChannels, asm: BE.GDK}
+      data:
+        <DisplayName>k__BackingField: Ui Framework
+        <ActiveLevel>k__BackingField: 2
+        <LogDecorators>k__BackingField: []
+        <UseCustomDecorators>k__BackingField: 0
+        <Description>k__BackingField: Channel for UiFramework logging.

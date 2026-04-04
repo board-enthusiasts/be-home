@@ -1,0 +1,97 @@
+.main-screen {
+}
+
+.main-screen__background {
+    background-color: var(--color_main-background);
+}
+
+.main-screen__header {
+    background-color: var(--color_header-background);
+}
+
+.main-screen__header__content {
+    justify-content: space-between;
+    margin-left: var(--spacing_default);
+    margin-right: 10px;
+}
+
+.main-screen__header__logo {
+    align-items: center;
+    height: 80px;
+}
+
+.main-screen__logo {
+    background-image: var(--texture_logo);
+    aspect-ratio: 1;
+    height: 100%;
+    border-radius: 20px;
+}
+
+.main-screen__wordmark {
+    margin-left: var(--spacing_default);
+}
+
+.main-screen__wordmark__title {
+    font-size: var(--font-size_xl);
+}
+
+.main-screen__wordmark__subtitle {
+    color: var(--font-color_secondary);
+    font-size: var(--font-size_m);
+}
+
+.main-screen__nav {
+    align-items: center;
+}
+
+.main-screen__nav-button {
+    width: 80px;
+    aspect-ratio: 1;
+    background-size: 40% 40%;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-radius: 25px;
+    margin-right: 10px;
+    margin-left: 10px;
+    border-color: var(--color_button_nav_border);
+    background-color: var(--color_button_nav_background);
+    -unity-background-image-tint-color: var(--color_button_nav_icon);
+}
+
+.main-screen__nav-button:active {
+    background-color: var(--color_button_nav_background-active);
+    border-color: var(--color_button_nav_border-active);
+    -unity-background-image-tint-color: var(--color_button_nav_icon-active);
+}
+
+.main-screen__nav-button#apps {
+    background-image: var(--icon_apps);
+}
+
+.main-screen__nav-button#bluetooth-settings {
+    background-image: var(--icon_bluetooth);
+}
+
+.main-screen__nav-button#device-info-settings {
+    background-image: var(--icon_mobile-info);
+}
+
+.main-screen__nav-button#developer-options {
+    display: none;
+    background-image: var(--icon_data-object);
+}
+
+.main-screen.--developer-options-enabled .main-screen__nav-button#developer-options {
+    display: flex;
+}
+
+.main-screen__footer {
+}
+
+.main-screen__content {
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size_xxl);
+}
