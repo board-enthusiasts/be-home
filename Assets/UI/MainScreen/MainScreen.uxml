@@ -23,9 +23,18 @@
                 <ui:VisualElement class="board-placeholder__settings"/>
             </ui:VisualElement>
             <ui:VisualElement picking-mode="Ignore" class="main-screen__content content padded">
-                <ui:Label text="More coming very soon!" class="main-screen__content__welcome"/>
+                <ui:VisualElement name="browse-content-host" class="main-screen__browse-host">
+                    <ui:VisualElement class="main-screen__browse-placeholder">
+                        <ui:Label text="Embedded browse spike" class="main-screen__browse-placeholder__title"/>
+                        <ui:Label text="On Board, the staging /browse page will render inside this content area so we can validate touch alignment and navigation quickly." class="main-screen__browse-placeholder__body"/>
+                    </ui:VisualElement>
+                </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement picking-mode="Ignore" class="main-screen__footer footer padded"/>
+            <ui:VisualElement class="main-screen__footer footer row padded">
+                <ui:VisualElement name="browse-back" class="main-screen__nav-button main-screen__browse-back"/>
+                <ui:Label name="browse-status" text="Preparing embedded browse spike..." class="main-screen__browse-status"/>
+                <ui:VisualElement class="main-screen__footer-spacer"/>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

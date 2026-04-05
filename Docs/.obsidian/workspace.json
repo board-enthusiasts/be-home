@@ -1,0 +1,196 @@
+{
+  "main": {
+    "id": "fedbf9d852bdb61e",
+    "type": "split",
+    "children": [
+      {
+        "id": "0936be3d297d4357",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "cf39055d3d341f35",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "New tab"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "1b1d8fdbe7b7bb27",
+    "type": "split",
+    "children": [
+      {
+        "id": "ab4070130c7a32c9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d1a231cba6bdf80b",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "a8ac22bab5857690",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "eadb432f018111e5",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "ed7e6e924af70dbe",
+    "type": "split",
+    "children": [
+      {
+        "id": "35e4823a9b1666b3",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "dc87a1d25174e198",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Truth/Technical Design Doc.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Technical Design Doc"
+            }
+          },
+          {
+            "id": "28179502bf6fb3e4",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Truth/Technical Design Doc.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from Technical Design Doc"
+            }
+          },
+          {
+            "id": "7f4c431be4997534",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "fd3d433bbafa80f5",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "8a1a5d644ec688cf",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Truth/Technical Design Doc.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Technical Design Doc"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "cf39055d3d341f35",
+  "lastOpenFiles": [
+    "Dev/Coding Standard.md",
+    "Dev/MVVMC.md",
+    "Dev/Dependency Injection.md",
+    "Truth/Technical Design Doc.md",
+    "Documentation.md",
+    "Truth/App Design Doc.md",
+    "HistoricalContext",
+    "Dev",
+    "Truth",
+    "Planning",
+    "AgentContext"
+  ]
+}

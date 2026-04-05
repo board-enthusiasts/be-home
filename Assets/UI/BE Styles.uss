@@ -43,6 +43,7 @@
 
     /** Icons **/
     --icon_android: url("Textures/Icons/android_24dp.svg");
+    --icon_arrow-back: url("Textures/Icons/arrow_back_24dp.svg");
     --icon_apps: url("Textures/Icons/apps_24dp.svg");
     --icon_code: url("Textures/Icons/code_24dp.svg");
     --icon_data-object: url("Textures/Icons/data_object_24dp.svg");

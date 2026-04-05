@@ -1,4 +1,4 @@
-﻿namespace Android
+namespace Android
 {
 /// <summary>
 /// Method names for Android objects.

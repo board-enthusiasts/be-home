@@ -2,6 +2,10 @@
 
 The *BE Home* app is your one-stop on-Board shop for all things Board Enthusiasts has to offer on the Board device itself!.
 
+## Documentation
+
+Documentation for this repo lives at `/Docs/*`. Start with `/Docs/Documentation.md` to get acquianted.
+
 ## Dependencies
 
 This Unity project has several external dependences that must be installed before it will compile:

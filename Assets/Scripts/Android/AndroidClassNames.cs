@@ -1,4 +1,4 @@
-﻿namespace Android
+namespace Android
 {
 /// <summary>
 /// Definitions of Android class names.
