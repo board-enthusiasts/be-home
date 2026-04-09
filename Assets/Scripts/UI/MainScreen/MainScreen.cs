@@ -37,6 +37,7 @@ public class MainScreen : MonoBehaviour
     private const float BrowseOverlayAnimationFrequency = 2.5f;
     private const string OfflineBrowseMessage = "We can't reach the BE Game Index right now. Make sure you have Wifi connected on your Board";
     private const string BeHomeAuthStateMessageType = "be-home-auth-state";
+    private const string BeHomeOpenExternalUrlMessageType = "be-home-open-external-url";
 
     private UIDocument _uiDocument;
     private VisualElement _root;
@@ -494,6 +495,13 @@ public class MainScreen : MonoBehaviour
         public string displayName;
     }
 
+    [Serializable]
+    private sealed class BeHomeOpenExternalUrlMessage
+    {
+        public string type;
+        public string url;
+    }
+
     private void HandleBrowseJavaScriptMessage(string message)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -503,6 +511,19 @@ public class MainScreen : MonoBehaviour
 
         try
         {
+            if (message.Contains(BeHomeOpenExternalUrlMessageType, StringComparison.Ordinal))
+            {
+                var openExternalUrlMessage = JsonUtility.FromJson<BeHomeOpenExternalUrlMessage>(message);
+                if (openExternalUrlMessage != null
+                    && string.Equals(openExternalUrlMessage.type, BeHomeOpenExternalUrlMessageType, StringComparison.Ordinal)
+                    && !string.IsNullOrWhiteSpace(openExternalUrlMessage.url))
+                {
+                    Application.OpenURL(openExternalUrlMessage.url);
+                    LogBrowseMessage($"Opening external URL outside WebView: {openExternalUrlMessage.url}");
+                    return;
+                }
+            }
+
             var authState = JsonUtility.FromJson<BeHomeAuthStateMessage>(message);
             if (authState == null || !string.Equals(authState.type, BeHomeAuthStateMessageType, StringComparison.Ordinal))
             {
