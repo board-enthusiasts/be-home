@@ -67,6 +67,7 @@
 }
 
 .main-screen__nav-button#apps {
+    display: none;
     background-image: var(--icon_apps);
 }
 
@@ -79,6 +80,7 @@
 }
 
 .main-screen__nav-button#device-info-settings {
+    display: none;
     background-image: var(--icon_mobile-info);
 }
 
@@ -87,7 +89,12 @@
     background-image: var(--icon_data-object);
 }
 
-.main-screen.--developer-options-enabled .main-screen__nav-button#developer-options {
+.main-screen.--developer-authenticated .main-screen__nav-button#apps,
+.main-screen.--developer-authenticated .main-screen__nav-button#device-info-settings {
+    display: flex;
+}
+
+.main-screen.--developer-options-enabled.--developer-authenticated .main-screen__nav-button#developer-options {
     display: flex;
 }
 

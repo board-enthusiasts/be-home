@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 using Android;
 
@@ -20,9 +21,9 @@ public class MainScreen : MonoBehaviour
     public const string BrowseOverlayLogoName = "browse-overlay-logo";
     public const string BrowseOverlayTitleName = "browse-overlay-title";
     public const string BrowseOverlayBodyName = "browse-overlay-body";
-    public const string BrowsePageUrl = "https://boardenthusiasts.com/browse?embed=board";
 
     public const string DeveloperOptionsEnabledModifierClassName = "--developer-options-enabled";
+    public const string DeveloperAuthenticatedModifierClassName = "--developer-authenticated";
 
     public const string AppsButtonName = "apps";
     public const string BluetoothSettingsButtonName = "bluetooth-settings";
@@ -35,6 +36,7 @@ public class MainScreen : MonoBehaviour
     private const float BrowseOverlayAnimationAngleDegrees = 10f;
     private const float BrowseOverlayAnimationFrequency = 2.5f;
     private const string OfflineBrowseMessage = "We can't reach the BE Game Index right now. Make sure you have Wifi connected on your Board";
+    private const string BeHomeAuthStateMessageType = "be-home-auth-state";
 
     private UIDocument _uiDocument;
     private VisualElement _root;
@@ -50,6 +52,7 @@ public class MainScreen : MonoBehaviour
     private bool _isUiBuilt;
     private bool _hasLoadedBrowseContent;
     private bool _isBrowseOffline;
+    private string _browsePageUrl;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
     private WebViewObject _browseWebView;
@@ -59,6 +62,7 @@ public class MainScreen : MonoBehaviour
     private void Awake()
     {
         _uiDocument = this.GetRequiredComponent<UIDocument>();
+        _browsePageUrl = BeHomeProjectSettings.GetConfiguredBrowsePageUrl();
     }
 
     private void OnEnable()
@@ -114,6 +118,7 @@ public class MainScreen : MonoBehaviour
 
         _browseBackButton?.AddManipulator(new Clickable(GoBackInBrowse));
         SetBrowseBackEnabled(false);
+        SetDeveloperShellAccess(false);
         SetBrowseOverlay(isVisible: true, title: null, body: null);
 
         _isUiBuilt = true;
@@ -161,7 +166,7 @@ public class MainScreen : MonoBehaviour
         _hasStartedBrowseWebView = true;
         TryLoadBrowsePage();
 #else
-        ShowMessageOverlay("Android device build required.", BrowsePageUrl);
+        ShowMessageOverlay("Android device build required.", _browsePageUrl);
 #endif
     }
 
@@ -208,6 +213,7 @@ public class MainScreen : MonoBehaviour
 
         _browseWebView = webViewGameObject.AddComponent<WebViewObject>();
         _browseWebView.Init(
+            cb: HandleBrowseJavaScriptMessage,
             err: HandleBrowseLoadError,
             httpErr: HandleBrowseLoadError,
             ld: HandleBrowseLoaded,
@@ -332,8 +338,8 @@ public class MainScreen : MonoBehaviour
         }
 
         _browseWebView.SetVisibility(false);
-        _browseWebView.LoadURL(BrowsePageUrl);
-        LogBrowseMessage($"Loading {BrowsePageUrl}");
+        _browseWebView.LoadURL(_browsePageUrl);
+        LogBrowseMessage($"Loading {_browsePageUrl}");
 #endif
     }
 
@@ -359,6 +365,11 @@ public class MainScreen : MonoBehaviour
         }
 
         _browseBackButton.SetEnabled(isEnabled);
+    }
+
+    private void SetDeveloperShellAccess(bool hasAccess)
+    {
+        _root?.EnableInClassList(DeveloperAuthenticatedModifierClassName, hasAccess);
     }
 
     private void UpdateBrowseBackState()
@@ -434,6 +445,34 @@ public class MainScreen : MonoBehaviour
         UnityEngine.Debug.Log($"[MainScreen] {message}");
     }
 
+    private static bool HasDeveloperShellAccess(string[] roles)
+    {
+        if (roles == null || roles.Length == 0)
+        {
+            return false;
+        }
+
+        return roles.Any((role) =>
+        {
+            if (string.IsNullOrWhiteSpace(role))
+            {
+                return false;
+            }
+
+            switch (role.Trim().ToLowerInvariant())
+            {
+            case "developer":
+            case "verified_developer":
+            case "moderator":
+            case "admin":
+            case "super_admin":
+                return true;
+            default:
+                return false;
+            }
+        });
+    }
+
     private void OnPauseScreenActionReceived(BoardPauseAction pauseAction, BoardPauseAudioTrack[] audioTracks)
     {
         switch (pauseAction)
@@ -446,6 +485,41 @@ public class MainScreen : MonoBehaviour
     }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
+    [Serializable]
+    private sealed class BeHomeAuthStateMessage
+    {
+        public string type;
+        public bool authenticated;
+        public string[] roles;
+        public string displayName;
+    }
+
+    private void HandleBrowseJavaScriptMessage(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        try
+        {
+            var authState = JsonUtility.FromJson<BeHomeAuthStateMessage>(message);
+            if (authState == null || !string.Equals(authState.type, BeHomeAuthStateMessageType, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            bool hasDeveloperShellAccess = authState.authenticated && HasDeveloperShellAccess(authState.roles);
+            SetDeveloperShellAccess(hasDeveloperShellAccess);
+            LogBrowseMessage(
+                $"Received auth bridge state: authenticated={authState.authenticated}, developerShellAccess={hasDeveloperShellAccess}, displayName={authState.displayName ?? "(none)"}");
+        }
+        catch (Exception ex)
+        {
+            LogBrowseMessage($"Ignored malformed JS bridge message: {ex.Message}");
+        }
+    }
+
     private void HandleBrowseStarted(string url)
     {
         RefreshBrowseLayout();
@@ -466,7 +540,7 @@ public class MainScreen : MonoBehaviour
 
         if (IsBlankBrowsePage(url))
         {
-            HandleBrowseUnavailable($"The WebView reported a blank page for {BrowsePageUrl}.");
+            HandleBrowseUnavailable($"The WebView reported a blank page for {_browsePageUrl}.");
             return;
         }
 
