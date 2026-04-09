@@ -1,3 +1,5 @@
+using System;
+
 using Android;
 
 using Board.Core;
@@ -13,24 +15,41 @@ public class MainScreen : MonoBehaviour
     public const string ClassName = "main-screen";
     public const string NavButtonClassName = ClassName + "__nav-button";
     public const string BrowseContentHostName = "browse-content-host";
-    public const string BrowseStatusName = "browse-status";
     public const string BrowseBackButtonName = "browse-back";
-    public const string BrowsePageUrl = "https://staging.boardenthusiasts.com/browse";
-    
+    public const string BrowseOverlayName = "browse-overlay";
+    public const string BrowseOverlayLogoName = "browse-overlay-logo";
+    public const string BrowseOverlayTitleName = "browse-overlay-title";
+    public const string BrowseOverlayBodyName = "browse-overlay-body";
+    public const string BrowsePageUrl = "https://boardenthusiasts.com/browse?embed=board";
+
     public const string DeveloperOptionsEnabledModifierClassName = "--developer-options-enabled";
 
     public const string AppsButtonName = "apps";
     public const string BluetoothSettingsButtonName = "bluetooth-settings";
     public const string DeviceInfoSettingsButtonName = "device-info-settings";
     public const string DeveloperOptionsButtonName = "developer-options";
-    
+
+    private const int BrowseLayoutRefreshIntervalMs = 250;
+    private const int BrowseRetryIntervalMs = 10000;
+    private const int BrowseOverlayAnimationIntervalMs = 33;
+    private const float BrowseOverlayAnimationAngleDegrees = 10f;
+    private const float BrowseOverlayAnimationFrequency = 2.5f;
+    private const string OfflineBrowseMessage = "We can't reach the BE Game Index right now. Make sure you have Wifi connected on your Board";
+
     private UIDocument _uiDocument;
     private VisualElement _root;
     private VisualElement _browseContentHost;
-    private Label _browseStatus;
     private VisualElement _browseBackButton;
+    private VisualElement _browseOverlay;
+    private VisualElement _browseOverlayLogo;
+    private Label _browseOverlayTitle;
+    private Label _browseOverlayBody;
     private IVisualElementScheduledItem _browseLayoutRefresh;
+    private IVisualElementScheduledItem _browseRetryRefresh;
+    private IVisualElementScheduledItem _browseOverlayAnimation;
     private bool _isUiBuilt;
+    private bool _hasLoadedBrowseContent;
+    private bool _isBrowseOffline;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
     private WebViewObject _browseWebView;
@@ -66,8 +85,11 @@ public class MainScreen : MonoBehaviour
     {
         _root = _uiDocument.rootVisualElement.Q(className: ClassName);
         _browseContentHost = _root?.Q<VisualElement>(BrowseContentHostName);
-        _browseStatus = _root?.Q<Label>(BrowseStatusName);
         _browseBackButton = _root?.Q<VisualElement>(BrowseBackButtonName);
+        _browseOverlay = _root?.Q<VisualElement>(BrowseOverlayName);
+        _browseOverlayLogo = _root?.Q<VisualElement>(BrowseOverlayLogoName);
+        _browseOverlayTitle = _root?.Q<Label>(BrowseOverlayTitleName);
+        _browseOverlayBody = _root?.Q<Label>(BrowseOverlayBodyName);
 
         if (_isUiBuilt)
         {
@@ -92,44 +114,62 @@ public class MainScreen : MonoBehaviour
 
         _browseBackButton?.AddManipulator(new Clickable(GoBackInBrowse));
         SetBrowseBackEnabled(false);
+        SetBrowseOverlay(isVisible: true, title: null, body: null);
 
         _isUiBuilt = true;
     }
 
     private void StartBrowseSpike()
     {
-        SetBrowseStatus("Preparing embedded browse spike...");
+        ScheduleBrowseOverlayAnimation();
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         EnsureBrowseWebView();
 
         if (_browseWebView == null)
         {
-            SetBrowseStatus("Browse spike is unavailable because the WebView package is missing.");
+            ShowMessageOverlay("Embedded browse is unavailable on this build.", "The Android WebView package did not initialize.");
             return;
         }
 
-        _browseWebView.SetVisibility(true);
+        _browseWebView.SetVisibility(false);
         ScheduleBrowseLayoutRefresh();
 
         if (_hasStartedBrowseWebView)
         {
             RefreshBrowseLayout();
+
+            if (_hasLoadedBrowseContent && !_isBrowseOffline)
+            {
+                HideBrowseOverlay();
+                _browseWebView.SetVisibility(true);
+                UpdateBrowseBackState();
+                return;
+            }
+
+            if (_isBrowseOffline)
+            {
+                ShowOfflineOverlay();
+                ScheduleBrowseRetry();
+                return;
+            }
+
+            TryLoadBrowsePage();
             return;
         }
 
         _hasStartedBrowseWebView = true;
-        RefreshBrowseLayout();
-        SetBrowseStatus($"Loading {BrowsePageUrl}");
-        _browseWebView.LoadURL(BrowsePageUrl);
+        TryLoadBrowsePage();
 #else
-        SetBrowseStatus($"Android device build required for the embedded browse spike: {BrowsePageUrl}");
+        ShowMessageOverlay("Android device build required.", BrowsePageUrl);
 #endif
     }
 
     private void StopBrowseSpike()
     {
         _browseLayoutRefresh?.Pause();
+        _browseRetryRefresh?.Pause();
+        _browseOverlayAnimation?.Pause();
         SetBrowseBackEnabled(false);
 
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -141,6 +181,10 @@ public class MainScreen : MonoBehaviour
     {
         _browseLayoutRefresh?.Pause();
         _browseLayoutRefresh = null;
+        _browseRetryRefresh?.Pause();
+        _browseRetryRefresh = null;
+        _browseOverlayAnimation?.Pause();
+        _browseOverlayAnimation = null;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (_browseWebView != null)
@@ -164,19 +208,11 @@ public class MainScreen : MonoBehaviour
 
         _browseWebView = webViewGameObject.AddComponent<WebViewObject>();
         _browseWebView.Init(
-            err: message => SetBrowseStatus($"WebView error: {message}"),
-            httpErr: message => SetBrowseStatus($"HTTP error: {message}"),
-            ld: message =>
-            {
-                RefreshBrowseLayout();
-                UpdateBrowseBackState();
-                SetBrowseStatus($"Loaded {message}");
-            },
-            started: message =>
-            {
-                UpdateBrowseBackState();
-                SetBrowseStatus($"Loading {message}");
-            });
+            err: HandleBrowseLoadError,
+            httpErr: HandleBrowseLoadError,
+            ld: HandleBrowseLoaded,
+            started: HandleBrowseStarted,
+            transparent: true);
     }
 #endif
 
@@ -189,7 +225,7 @@ public class MainScreen : MonoBehaviour
 
         if (_browseLayoutRefresh == null)
         {
-            _browseLayoutRefresh = _root.schedule.Execute(RefreshBrowseLayout).Every(250);
+            _browseLayoutRefresh = _root.schedule.Execute(RefreshBrowseLayout).Every(BrowseLayoutRefreshIntervalMs);
         }
         else
         {
@@ -197,6 +233,58 @@ public class MainScreen : MonoBehaviour
         }
 
         RefreshBrowseLayout();
+    }
+
+    private void ScheduleBrowseRetry()
+    {
+        if (_root == null)
+        {
+            return;
+        }
+
+        if (_browseRetryRefresh == null)
+        {
+            _browseRetryRefresh = _root.schedule.Execute(() => TryLoadBrowsePage(keepOfflineOverlay: true)).Every(BrowseRetryIntervalMs);
+        }
+        else
+        {
+            _browseRetryRefresh.Resume();
+        }
+    }
+
+    private void StopBrowseRetry()
+    {
+        _browseRetryRefresh?.Pause();
+    }
+
+    private void ScheduleBrowseOverlayAnimation()
+    {
+        if (_root == null || _browseOverlayLogo == null)
+        {
+            return;
+        }
+
+        if (_browseOverlayAnimation == null)
+        {
+            _browseOverlayAnimation = _root.schedule.Execute(AnimateBrowseOverlay).Every(BrowseOverlayAnimationIntervalMs);
+        }
+        else
+        {
+            _browseOverlayAnimation.Resume();
+        }
+
+        AnimateBrowseOverlay();
+    }
+
+    private void AnimateBrowseOverlay()
+    {
+        if (_browseOverlayLogo == null)
+        {
+            return;
+        }
+
+        float angle = Mathf.Sin(Time.unscaledTime * BrowseOverlayAnimationFrequency) * BrowseOverlayAnimationAngleDegrees;
+        _browseOverlayLogo.style.rotate = new StyleRotate(new Rotate(new Angle(angle, AngleUnit.Degree)));
     }
 
     private void RefreshBrowseLayout()
@@ -228,6 +316,27 @@ public class MainScreen : MonoBehaviour
 #endif
     }
 
+    private void TryLoadBrowsePage(bool keepOfflineOverlay = false)
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (_browseWebView == null)
+        {
+            return;
+        }
+
+        RefreshBrowseLayout();
+
+        if (!keepOfflineOverlay)
+        {
+            ShowLoadingOverlay();
+        }
+
+        _browseWebView.SetVisibility(false);
+        _browseWebView.LoadURL(BrowsePageUrl);
+        LogBrowseMessage($"Loading {BrowsePageUrl}");
+#endif
+    }
+
     private void GoBackInBrowse()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -237,10 +346,8 @@ public class MainScreen : MonoBehaviour
         }
 
         _browseWebView.GoBack();
-        SetBrowseStatus("Going back...");
+        LogBrowseMessage("Going back...");
         UpdateBrowseBackState();
-#else
-        SetBrowseStatus("Browse history is only available in Android device builds.");
 #endif
     }
 
@@ -257,22 +364,76 @@ public class MainScreen : MonoBehaviour
     private void UpdateBrowseBackState()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetBrowseBackEnabled(_browseWebView != null && _browseWebView.CanGoBack());
+        SetBrowseBackEnabled(_browseWebView != null && !_isBrowseOffline && _browseWebView.CanGoBack());
 #else
         SetBrowseBackEnabled(false);
 #endif
     }
 
-    private void SetBrowseStatus(string message)
+    private void ShowLoadingOverlay()
     {
-        if (_browseStatus != null)
+#if UNITY_ANDROID && !UNITY_EDITOR
+        _isBrowseOffline = false;
+#endif
+        SetBrowseOverlay(isVisible: true, title: null, body: null);
+    }
+
+    private void ShowOfflineOverlay()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        _isBrowseOffline = true;
+#endif
+        SetBrowseOverlay(isVisible: true, title: null, body: OfflineBrowseMessage);
+    }
+
+    private void ShowMessageOverlay(string title, string body)
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        _isBrowseOffline = false;
+#endif
+        SetBrowseOverlay(isVisible: true, title, body);
+    }
+
+    private void HideBrowseOverlay()
+    {
+        SetBrowseOverlay(isVisible: false, title: null, body: null);
+    }
+
+    private void SetBrowseOverlay(bool isVisible, string title, string body)
+    {
+        if (_browseOverlay == null)
         {
-            _browseStatus.text = message;
+            return;
         }
 
+        _browseOverlay.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+
+        if (_browseOverlayTitle != null)
+        {
+            bool showTitle = isVisible && !string.IsNullOrWhiteSpace(title);
+            _browseOverlayTitle.style.display = showTitle ? DisplayStyle.Flex : DisplayStyle.None;
+            _browseOverlayTitle.text = showTitle ? title : string.Empty;
+        }
+
+        if (_browseOverlayBody != null)
+        {
+            bool showBody = isVisible && !string.IsNullOrWhiteSpace(body);
+            _browseOverlayBody.style.display = showBody ? DisplayStyle.Flex : DisplayStyle.None;
+            _browseOverlayBody.text = showBody ? body : string.Empty;
+        }
+    }
+
+    private static bool IsBlankBrowsePage(string url)
+    {
+        return string.IsNullOrWhiteSpace(url)
+            || url.StartsWith("about:blank", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void LogBrowseMessage(string message)
+    {
         UnityEngine.Debug.Log($"[MainScreen] {message}");
     }
-    
+
     private void OnPauseScreenActionReceived(BoardPauseAction pauseAction, BoardPauseAudioTrack[] audioTracks)
     {
         switch (pauseAction)
@@ -283,4 +444,55 @@ public class MainScreen : MonoBehaviour
             break;
         }
     }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    private void HandleBrowseStarted(string url)
+    {
+        RefreshBrowseLayout();
+
+        if (!_isBrowseOffline && !_hasLoadedBrowseContent)
+        {
+            ShowLoadingOverlay();
+            _browseWebView?.SetVisibility(false);
+        }
+
+        UpdateBrowseBackState();
+        LogBrowseMessage($"Loading {url}");
+    }
+
+    private void HandleBrowseLoaded(string url)
+    {
+        RefreshBrowseLayout();
+
+        if (IsBlankBrowsePage(url))
+        {
+            HandleBrowseUnavailable($"The WebView reported a blank page for {BrowsePageUrl}.");
+            return;
+        }
+
+        _hasLoadedBrowseContent = true;
+        _isBrowseOffline = false;
+        StopBrowseRetry();
+        HideBrowseOverlay();
+        _browseWebView?.SetVisibility(true);
+        UpdateBrowseBackState();
+        LogBrowseMessage($"Loaded {url}");
+    }
+
+    private void HandleBrowseLoadError(string message)
+    {
+        HandleBrowseUnavailable(message);
+    }
+
+    private void HandleBrowseUnavailable(string message)
+    {
+        _hasLoadedBrowseContent = false;
+        _isBrowseOffline = true;
+        _browseWebView?.SetVisibility(false);
+        ShowOfflineOverlay();
+        ScheduleBrowseRetry();
+        UpdateBrowseBackState();
+        LogBrowseMessage($"Browse unavailable: {message}");
+    }
+#endif
 }
