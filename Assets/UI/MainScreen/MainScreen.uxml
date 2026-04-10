@@ -23,13 +23,43 @@
                 </ui:VisualElement>
                 <ui:VisualElement class="board-placeholder__settings"/>
             </ui:VisualElement>
-            <ui:VisualElement picking-mode="Ignore" class="main-screen__content content padded">
+            <ui:VisualElement picking-mode="Ignore" class="main-screen__content">
                 <ui:VisualElement name="browse-content-host" class="main-screen__browse-host">
                     <ui:VisualElement name="browse-overlay" class="main-screen__browse-overlay">
                         <ui:VisualElement class="main-screen__browse-overlay__content">
                             <ui:VisualElement name="browse-overlay-logo" class="main-screen__browse-overlay__logo"/>
                             <ui:Label name="browse-overlay-title" class="main-screen__browse-overlay__title"/>
                             <ui:Label name="browse-overlay-body" class="main-screen__browse-overlay__body"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="external-browser-backdrop" class="main-screen__external-browser-backdrop">
+                    <ui:VisualElement picking-mode="Ignore" class="main-screen__external-browser-shadow main-screen__external-browser-shadow--outer"/>
+                    <ui:VisualElement picking-mode="Ignore" class="main-screen__external-browser-shadow main-screen__external-browser-shadow--mid"/>
+                    <ui:VisualElement picking-mode="Ignore" class="main-screen__external-browser-shadow main-screen__external-browser-shadow--inner"/>
+                    <ui:VisualElement name="external-browser-surface" class="main-screen__external-browser-surface">
+                        <ui:VisualElement name="external-browser-host" class="main-screen__external-browser-host">
+                            <ui:VisualElement name="external-browser-overlay" class="main-screen__external-browser-overlay">
+                                <ui:VisualElement class="main-screen__browse-overlay__content">
+                                    <ui:VisualElement name="external-browser-overlay-logo" class="main-screen__browse-overlay__logo"/>
+                                    <ui:Label name="external-browser-overlay-title" class="main-screen__browse-overlay__title"/>
+                                    <ui:Label name="external-browser-overlay-body" class="main-screen__browse-overlay__body"/>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="external-browser-close" class="main-screen__external-browser-close">
+                        <ui:Label text="X" class="main-screen__external-browser-close__label"/>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="external-notice-backdrop" class="main-screen__external-notice-backdrop">
+                    <ui:VisualElement picking-mode="Ignore" class="main-screen__external-notice-shadow main-screen__external-notice-shadow--outer"/>
+                    <ui:VisualElement picking-mode="Ignore" class="main-screen__external-notice-shadow main-screen__external-notice-shadow--inner"/>
+                    <ui:VisualElement name="external-notice-dialog" class="main-screen__external-notice-dialog">
+                        <ui:Label name="external-notice-title" class="main-screen__external-notice-title"/>
+                        <ui:Label name="external-notice-body" class="main-screen__external-notice-body"/>
+                        <ui:VisualElement name="external-notice-ok" class="main-screen__external-notice-button">
+                            <ui:Label text="OK" class="main-screen__external-notice-button__label"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
