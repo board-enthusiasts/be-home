@@ -29,12 +29,12 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     /// <summary>
     /// The hosted browse URL for the full website experience.
     /// </summary>
-    public const string FullWebsiteBrowsePageUrl = "https://staging.boardenthusiasts.com/browse";
+    public const string FullWebsiteBrowsePageUrl = "https://boardenthusiasts.com/browse";
 
     /// <summary>
     /// The hosted browse URL for the Board-embedded web experience.
     /// </summary>
-    public const string EmbeddedBrowsePageUrl = "https://staging.boardenthusiasts.com/browse?embed=board";
+    public const string EmbeddedBrowsePageUrl = "https://boardenthusiasts.com/browse?embed=board";
 
     [SerializeField]
     private BeHomeBrowsePresentationMode m_browsePresentationMode = BeHomeBrowsePresentationMode.FullWebsite;
