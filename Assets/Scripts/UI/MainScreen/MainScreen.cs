@@ -25,7 +25,6 @@ public class MainScreen : MonoBehaviour
     public const string ExternalBrowserBackdropName = "external-browser-backdrop";
     public const string ExternalBrowserSurfaceName = "external-browser-surface";
     public const string ExternalBrowserHostName = "external-browser-host";
-    public const string ExternalBrowserCloseName = "external-browser-close";
     public const string ExternalBrowserOverlayName = "external-browser-overlay";
     public const string ExternalBrowserOverlayLogoName = "external-browser-overlay-logo";
     public const string ExternalBrowserOverlayTitleName = "external-browser-overlay-title";
@@ -79,7 +78,6 @@ public class MainScreen : MonoBehaviour
     private VisualElement _externalBrowserBackdrop;
     private VisualElement _externalBrowserSurface;
     private VisualElement _externalBrowserHost;
-    private VisualElement _externalBrowserClose;
     private VisualElement _externalBrowserOverlay;
     private VisualElement _externalBrowserOverlayLogo;
     private Label _externalBrowserOverlayTitle;
@@ -151,7 +149,6 @@ public class MainScreen : MonoBehaviour
         _externalBrowserBackdrop = _root?.Q<VisualElement>(ExternalBrowserBackdropName);
         _externalBrowserSurface = _root?.Q<VisualElement>(ExternalBrowserSurfaceName);
         _externalBrowserHost = _root?.Q<VisualElement>(ExternalBrowserHostName);
-        _externalBrowserClose = _root?.Q<VisualElement>(ExternalBrowserCloseName);
         _externalBrowserOverlay = _root?.Q<VisualElement>(ExternalBrowserOverlayName);
         _externalBrowserOverlayLogo = _root?.Q<VisualElement>(ExternalBrowserOverlayLogoName);
         _externalBrowserOverlayTitle = _root?.Q<Label>(ExternalBrowserOverlayTitleName);
@@ -191,9 +188,7 @@ public class MainScreen : MonoBehaviour
         _quickGptButton?.AddManipulator(new Clickable(OpenGptQuickLink));
         _quickBugReportButton?.AddManipulator(new Clickable(OpenBugReportQuickLink));
         _externalBrowserBackdrop?.RegisterCallback<ClickEvent>(OnExternalBrowserBackdropClicked);
-        _externalBrowserClose?.AddManipulator(new Clickable(CloseExternalBrowser));
         _externalBrowserSurface?.RegisterCallback<ClickEvent>((evt) => evt.StopPropagation());
-        _externalBrowserClose?.RegisterCallback<ClickEvent>((evt) => evt.StopPropagation());
         _externalNoticeBackdrop?.RegisterCallback<ClickEvent>(OnExternalNoticeBackdropClicked);
         _externalNoticeDialog?.RegisterCallback<ClickEvent>((evt) => evt.StopPropagation());
         _externalNoticeButton?.AddManipulator(new Clickable(HideExternalNotice));

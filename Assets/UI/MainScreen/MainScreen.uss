@@ -224,10 +224,10 @@
     bottom: 0;
     align-items: stretch;
     justify-content: flex-start;
-    padding-top: 72px;
-    padding-right: 34px;
-    padding-bottom: 34px;
-    padding-left: 72px;
+    padding-top: 18px;
+    padding-right: 18px;
+    padding-bottom: 18px;
+    padding-left: 18px;
     background-color: rgba(5, 7, 10, 0.38);
     overflow: visible;
 }
@@ -280,38 +280,6 @@
     border-left-width: 1px;
     border-color: rgba(255, 255, 255, 0.16);
     overflow: visible;
-}
-
-.main-screen__external-browser-close {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    width: 60px;
-    height: 60px;
-    align-items: center;
-    justify-content: center;
-    border-top-left-radius: 30px;
-    border-top-right-radius: 30px;
-    border-bottom-right-radius: 30px;
-    border-bottom-left-radius: 30px;
-    border-top-width: 1px;
-    border-right-width: 1px;
-    border-bottom-width: 1px;
-    border-left-width: 1px;
-    border-color: rgba(255, 255, 255, 0.22);
-    background-color: rgba(38, 43, 49, 0.98);
-}
-
-.main-screen__external-browser-close:active {
-    background-color: rgba(58, 64, 71, 0.98);
-    border-color: rgba(255, 255, 255, 0.34);
-}
-
-.main-screen__external-browser-close__label {
-    font-size: 28px;
-    -unity-font-style: bold;
-    color: var(--font-color_primary);
-    -unity-text-align: middle-center;
 }
 
 .main-screen__external-browser-host {

@@ -55,9 +55,6 @@
                             </ui:VisualElement>
                         </ui:VisualElement>
                     </ui:VisualElement>
-                    <ui:VisualElement name="external-browser-close" class="main-screen__external-browser-close">
-                        <ui:Label text="X" class="main-screen__external-browser-close__label"/>
-                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="external-notice-backdrop" class="main-screen__external-notice-backdrop">
                     <ui:VisualElement picking-mode="Ignore" class="main-screen__external-notice-shadow main-screen__external-notice-shadow--outer"/>
