@@ -17,6 +17,22 @@ public enum BeHomeBrowsePresentationMode
 }
 
 /// <summary>
+/// Defines which hosted BE website environment BE Home should target.
+/// </summary>
+public enum BeHomeTargetEnvironment
+{
+    /// <summary>
+    /// Targets the public production BE website.
+    /// </summary>
+    Production = 0,
+
+    /// <summary>
+    /// Targets the staging BE website.
+    /// </summary>
+    Staging = 1,
+}
+
+/// <summary>
 /// Runtime-configurable project settings used by the BE Home Unity client.
 /// </summary>
 public sealed class BeHomeProjectSettings : ScriptableObject
@@ -27,17 +43,35 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     public const string ResourcePath = "Settings/BeHomeProjectSettings";
 
     /// <summary>
-    /// The hosted browse URL for the full website experience.
+    /// The hosted browse URL for the production full website experience.
     /// </summary>
-    public const string FullWebsiteBrowsePageUrl = "https://boardenthusiasts.com/browse";
+    public const string ProductionFullWebsiteBrowsePageUrl = "https://boardenthusiasts.com/browse";
 
     /// <summary>
-    /// The hosted browse URL for the Board-embedded web experience.
+    /// The hosted browse URL for the production Board-embedded web experience.
     /// </summary>
-    public const string EmbeddedBrowsePageUrl = "https://boardenthusiasts.com/browse?embed=board";
+    public const string ProductionEmbeddedBrowsePageUrl = "https://boardenthusiasts.com/browse?embed=board";
+
+    /// <summary>
+    /// The hosted browse URL for the staging full website experience.
+    /// </summary>
+    public const string StagingFullWebsiteBrowsePageUrl = "https://staging.boardenthusiasts.com/browse";
+
+    /// <summary>
+    /// The hosted browse URL for the staging Board-embedded web experience.
+    /// </summary>
+    public const string StagingEmbeddedBrowsePageUrl = "https://staging.boardenthusiasts.com/browse?embed=board";
+
+    [SerializeField]
+    private BeHomeTargetEnvironment m_targetEnvironment = BeHomeTargetEnvironment.Production;
 
     [SerializeField]
     private BeHomeBrowsePresentationMode m_browsePresentationMode = BeHomeBrowsePresentationMode.FullWebsite;
+
+    /// <summary>
+    /// Gets the configured hosted website environment for the current build.
+    /// </summary>
+    public BeHomeTargetEnvironment TargetEnvironment => m_targetEnvironment;
 
     /// <summary>
     /// Gets the configured hosted browse presentation mode for the current build.
@@ -47,9 +81,18 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     /// <summary>
     /// Gets the configured hosted browse URL for the current build.
     /// </summary>
-    public string BrowsePageUrl => m_browsePresentationMode == BeHomeBrowsePresentationMode.EmbeddedBoardShell
-        ? EmbeddedBrowsePageUrl
-        : FullWebsiteBrowsePageUrl;
+    public string BrowsePageUrl => ResolveBrowsePageUrl(m_targetEnvironment, m_browsePresentationMode);
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// Updates the configured hosted website environment for build-time asset synchronization.
+    /// </summary>
+    /// <param name="targetEnvironment">The hosted website environment to persist into the runtime settings asset.</param>
+    public void SetTargetEnvironment(BeHomeTargetEnvironment targetEnvironment)
+    {
+        m_targetEnvironment = targetEnvironment;
+    }
+#endif
 
     /// <summary>
     /// Loads the maintained BE Home settings asset from resources when it is available.
@@ -67,6 +110,30 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     public static string GetConfiguredBrowsePageUrl()
     {
         var settings = Load();
-        return settings != null ? settings.BrowsePageUrl : FullWebsiteBrowsePageUrl;
+        return settings != null
+            ? settings.BrowsePageUrl
+            : ProductionFullWebsiteBrowsePageUrl;
+    }
+
+    /// <summary>
+    /// Resolves the hosted browse URL for the given environment and presentation mode.
+    /// </summary>
+    /// <param name="targetEnvironment">The configured hosted website environment.</param>
+    /// <param name="browsePresentationMode">The configured website presentation mode.</param>
+    /// <returns>The fully resolved browse URL for the supplied settings.</returns>
+    public static string ResolveBrowsePageUrl(
+        BeHomeTargetEnvironment targetEnvironment,
+        BeHomeBrowsePresentationMode browsePresentationMode)
+    {
+        if (targetEnvironment == BeHomeTargetEnvironment.Staging)
+        {
+            return browsePresentationMode == BeHomeBrowsePresentationMode.EmbeddedBoardShell
+                ? StagingEmbeddedBrowsePageUrl
+                : StagingFullWebsiteBrowsePageUrl;
+        }
+
+        return browsePresentationMode == BeHomeBrowsePresentationMode.EmbeddedBoardShell
+            ? ProductionEmbeddedBrowsePageUrl
+            : ProductionFullWebsiteBrowsePageUrl;
     }
 }

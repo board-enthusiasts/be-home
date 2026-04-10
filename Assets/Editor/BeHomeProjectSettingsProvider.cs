@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 
 using UnityEditor;
+using UnityEditor.Build.Profile;
 
 using UnityEngine;
 
@@ -31,6 +32,9 @@ internal static class BeHomeProjectSettingsProvider
                 "BE Home",
                 "browse",
                 "embed",
+                "environment",
+                "staging",
+                "production",
                 "website",
                 "sign in",
             },
@@ -76,16 +80,38 @@ internal static class BeHomeProjectSettingsProvider
         serializedSettings.Update();
 
         EditorGUILayout.HelpBox(
-            "Choose whether BE Home loads the full hosted site or the Board-specific embedded shell. "
-            + "This is intended as a build-time project setting so we can ship different Board browser behavior without rewriting the app shell.",
+            "Choose which hosted BE website environment BE Home targets, and whether it loads the full hosted site "
+            + "or the Board-specific embedded shell. These are build-time project settings so we can ship different "
+            + "Board browser behavior without rewriting the app shell. Build Profiles can override the website environment at build time.",
             MessageType.Info);
+
+        EditorGUILayout.PropertyField(
+            serializedSettings.FindProperty("m_targetEnvironment"),
+            new GUIContent("Default Website Environment"));
 
         EditorGUILayout.PropertyField(
             serializedSettings.FindProperty("m_browsePresentationMode"),
             new GUIContent("Browse Presentation Mode"));
 
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Resolved Browse URL", settings.BrowsePageUrl, EditorStyles.wordWrappedLabel);
+        var activeBuildProfile = BuildProfile.GetActiveBuildProfile();
+        var activeBuildProfileSettings = activeBuildProfile != null
+            ? activeBuildProfile.GetComponent<BeHomeBuildProfileSettings>()
+            : null;
+        var effectiveEnvironment = activeBuildProfileSettings != null
+            ? activeBuildProfileSettings.TargetEnvironment
+            : settings.TargetEnvironment;
+        var resolvedBrowseUrl = BeHomeProjectSettings.ResolveBrowsePageUrl(
+            effectiveEnvironment,
+            settings.BrowsePresentationMode);
+
+        EditorGUILayout.LabelField(
+            "Active Build Profile Override",
+            activeBuildProfileSettings != null
+                ? effectiveEnvironment.ToString()
+                : "None (using default project setting)",
+            EditorStyles.wordWrappedLabel);
+        EditorGUILayout.LabelField("Resolved Build URL", resolvedBrowseUrl, EditorStyles.wordWrappedLabel);
 
         if (serializedSettings.ApplyModifiedProperties())
         {
