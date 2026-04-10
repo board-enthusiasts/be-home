@@ -43,6 +43,10 @@ public class MainScreen : MonoBehaviour
     public const string BluetoothSettingsButtonName = "bluetooth-settings";
     public const string DeviceInfoSettingsButtonName = "device-info-settings";
     public const string DeveloperOptionsButtonName = "developer-options";
+    public const string QuickYoutubeButtonName = "quick-youtube";
+    public const string QuickGptButtonName = "quick-gpt";
+    public const string QuickBugReportButtonName = "quick-bug-report";
+    public const string QuickLinkOfflineModifierClassName = ClassName + "__quick-link-button--offline";
 
     private const int BrowseLayoutRefreshIntervalMs = 250;
     private const int BrowseRetryIntervalMs = 10000;
@@ -54,6 +58,10 @@ public class MainScreen : MonoBehaviour
     private const string ExternalBrowseUnavailableMessage = "We couldn't open that page right now. Please try again.";
     private const string DiscordUnavailableTitle = "Discord isn't available on Board";
     private const string DiscordUnavailableMessage = "Please open Discord from your laptop or desktop computer instead.";
+    private const string ConnectWifiFirstTitle = "Connect your Board to Wi-Fi first";
+    private const string ConnectWifiFirstMessage = "These tools need an internet connection before they can open.";
+    private const string QuickYoutubeUrl = "https://m.youtube.com/@boardenthusiasts";
+    private const string QuickGptUrl = "https://chatgpt.com/g/g-69b033db223c81919edf748c33b08b3f-board-enthusiast";
     private const string BeHomeAuthStateMessageType = "be-home-auth-state";
     private const string BeHomeOpenExternalUrlMessageType = "be-home-open-external-url";
     private const int AndroidForceDarkModeOn = 2;
@@ -81,6 +89,9 @@ public class MainScreen : MonoBehaviour
     private Label _externalNoticeTitle;
     private Label _externalNoticeBody;
     private VisualElement _externalNoticeButton;
+    private VisualElement _quickYoutubeButton;
+    private VisualElement _quickGptButton;
+    private VisualElement _quickBugReportButton;
     private IVisualElementScheduledItem _browseLayoutRefresh;
     private IVisualElementScheduledItem _browseRetryRefresh;
     private IVisualElementScheduledItem _browseOverlayAnimation;
@@ -150,6 +161,9 @@ public class MainScreen : MonoBehaviour
         _externalNoticeTitle = _root?.Q<Label>(ExternalNoticeTitleName);
         _externalNoticeBody = _root?.Q<Label>(ExternalNoticeBodyName);
         _externalNoticeButton = _root?.Q<VisualElement>(ExternalNoticeButtonName);
+        _quickYoutubeButton = _root?.Q<VisualElement>(QuickYoutubeButtonName);
+        _quickGptButton = _root?.Q<VisualElement>(QuickGptButtonName);
+        _quickBugReportButton = _root?.Q<VisualElement>(QuickBugReportButtonName);
 
         if (_isUiBuilt)
         {
@@ -173,6 +187,9 @@ public class MainScreen : MonoBehaviour
         }
 
         _browseBackButton?.AddManipulator(new Clickable(GoBackInBrowse));
+        _quickYoutubeButton?.AddManipulator(new Clickable(OpenYoutubeQuickLink));
+        _quickGptButton?.AddManipulator(new Clickable(OpenGptQuickLink));
+        _quickBugReportButton?.AddManipulator(new Clickable(OpenBugReportQuickLink));
         _externalBrowserBackdrop?.RegisterCallback<ClickEvent>(OnExternalBrowserBackdropClicked);
         _externalBrowserClose?.AddManipulator(new Clickable(CloseExternalBrowser));
         _externalBrowserSurface?.RegisterCallback<ClickEvent>((evt) => evt.StopPropagation());
@@ -187,6 +204,7 @@ public class MainScreen : MonoBehaviour
         SetExternalBrowserOverlay(isVisible: true, title: null, body: null);
         SetExternalBrowserModalVisible(false);
         SetExternalNoticeVisible(false, null, null);
+        UpdateQuickLinkAvailability();
 
         _isUiBuilt = true;
     }
@@ -409,6 +427,8 @@ public class MainScreen : MonoBehaviour
     private void RefreshBrowseLayout()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        UpdateQuickLinkAvailability();
+
         if (_root == null)
         {
             return;
@@ -418,6 +438,58 @@ public class MainScreen : MonoBehaviour
         RefreshWebViewLayout(_externalWebView, _externalBrowserHost);
         UpdateBrowseBackState();
 #endif
+    }
+
+    private void OpenYoutubeQuickLink()
+    {
+        OpenOnlineQuickLink(QuickYoutubeUrl);
+    }
+
+    private void OpenGptQuickLink()
+    {
+        OpenOnlineQuickLink(QuickGptUrl);
+    }
+
+    private void OpenBugReportQuickLink()
+    {
+        if (!IsInternetAvailable())
+        {
+            ShowExternalNotice(ConnectWifiFirstTitle, ConnectWifiFirstMessage);
+            return;
+        }
+
+        CloseExternalBrowser();
+        LoadBrowseUrl(BuildSupportPageUrl(autoOpenSupport: true));
+    }
+
+    private void OpenOnlineQuickLink(string url)
+    {
+        if (!IsInternetAvailable())
+        {
+            ShowExternalNotice(ConnectWifiFirstTitle, ConnectWifiFirstMessage);
+            return;
+        }
+
+        HideExternalNotice();
+        OpenExternalBrowser(url);
+    }
+
+    private bool IsInternetAvailable()
+    {
+        return Application.internetReachability != NetworkReachability.NotReachable;
+    }
+
+    private void UpdateQuickLinkAvailability()
+    {
+        bool isOffline = !IsInternetAvailable();
+        SetQuickLinkOfflineState(_quickYoutubeButton, isOffline);
+        SetQuickLinkOfflineState(_quickGptButton, isOffline);
+        SetQuickLinkOfflineState(_quickBugReportButton, isOffline);
+    }
+
+    private static void SetQuickLinkOfflineState(VisualElement button, bool isOffline)
+    {
+        button?.EnableInClassList(QuickLinkOfflineModifierClassName, isOffline);
     }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -914,6 +986,33 @@ public class MainScreen : MonoBehaviour
     private static string TryGetHost(string url)
     {
         return Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : string.Empty;
+    }
+
+    private string BuildSupportPageUrl(bool autoOpenSupport)
+    {
+        if (!Uri.TryCreate(_browsePageUrl, UriKind.Absolute, out var browseUri))
+        {
+            return autoOpenSupport ? "/support?beHomeSupportOpen=1" : "/support";
+        }
+
+        var uriBuilder = new UriBuilder(browseUri)
+        {
+            Path = "/support",
+        };
+
+        string[] existingQuerySegments = (browseUri.Query ?? string.Empty)
+            .TrimStart('?')
+            .Split(new[] { '&' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where((segment) => !segment.StartsWith("beHomeSupportOpen=", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (autoOpenSupport)
+        {
+            existingQuerySegments = existingQuerySegments.Concat(new[] { "beHomeSupportOpen=1" }).ToArray();
+        }
+
+        uriBuilder.Query = string.Join("&", existingQuerySegments);
+        return uriBuilder.Uri.ToString();
     }
 
     private static bool HostMatches(string host, string match)

@@ -52,6 +52,9 @@
     --icon_view-apps: url("Textures/Icons/view_apps_24dp.svg");
     --icon_setings: url("Textures/Icons/settings_24dp.svg");
     --icon_bluetooth: url("Textures/Icons/bluetooth_24dp.svg");
+    --icon_bug-report: url("Textures/Icons/bug_report_24dp.svg");
+    --icon_gpt: url("Textures/Icons/auto_awesome_24dp.svg");
+    --icon_youtube: url("Textures/Icons/youtube_24dp.svg");
     
     /** Spacing **/
     --spacing_default: 16px;

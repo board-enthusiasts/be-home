@@ -15,6 +15,11 @@
     margin-right: 10px;
 }
 
+.main-screen__header__primary {
+    align-items: center;
+    flex-grow: 1;
+}
+
 .main-screen__header__logo {
     align-items: center;
     height: 80px;
@@ -42,6 +47,21 @@
 
 .main-screen__nav {
     align-items: center;
+    flex-shrink: 0;
+}
+
+.main-screen__quick-actions {
+    align-items: center;
+    margin-left: 28px;
+}
+
+.main-screen__quick-link-button {
+    margin-right: 6px;
+    margin-left: 6px;
+}
+
+.main-screen__quick-link-button--offline {
+    opacity: 0.38;
 }
 
 .main-screen__nav-button {
@@ -87,6 +107,18 @@
 .main-screen__nav-button#developer-options {
     display: none;
     background-image: var(--icon_data-object);
+}
+
+.main-screen__nav-button#quick-youtube {
+    background-image: var(--icon_youtube);
+}
+
+.main-screen__nav-button#quick-gpt {
+    background-image: var(--icon_gpt);
+}
+
+.main-screen__nav-button#quick-bug-report {
+    background-image: var(--icon_bug-report);
 }
 
 .main-screen.--developer-authenticated .main-screen__nav-button#apps,
@@ -191,10 +223,10 @@
     bottom: 0;
     align-items: stretch;
     justify-content: flex-start;
-    padding-top: 84px;
+    padding-top: 72px;
     padding-right: 34px;
     padding-bottom: 34px;
-    padding-left: 84px;
+    padding-left: 72px;
     background-color: rgba(5, 7, 10, 0.38);
     overflow: visible;
 }
@@ -251,16 +283,16 @@
 
 .main-screen__external-browser-close {
     position: absolute;
-    top: 12px;
-    left: 12px;
-    width: 68px;
-    height: 68px;
+    top: 10px;
+    left: 10px;
+    width: 60px;
+    height: 60px;
     align-items: center;
     justify-content: center;
-    border-top-left-radius: 34px;
-    border-top-right-radius: 34px;
-    border-bottom-right-radius: 34px;
-    border-bottom-left-radius: 34px;
+    border-top-left-radius: 30px;
+    border-top-right-radius: 30px;
+    border-bottom-right-radius: 30px;
+    border-bottom-left-radius: 30px;
     border-top-width: 1px;
     border-right-width: 1px;
     border-bottom-width: 1px;
@@ -275,7 +307,7 @@
 }
 
 .main-screen__external-browser-close__label {
-    font-size: 32px;
+    font-size: 28px;
     -unity-font-style: bold;
     color: var(--font-color_primary);
     -unity-text-align: middle-center;

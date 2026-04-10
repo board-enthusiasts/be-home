@@ -6,11 +6,18 @@
             <ui:VisualElement picking-mode="Ignore" class="main-screen__header header row padded">
                 <ui:VisualElement class="board-placeholder__profile-switcher"/>
                 <ui:VisualElement class="main-screen__header__content content row">
-                    <ui:VisualElement class="main-screen__header__logo row">
-                        <ui:VisualElement class="main-screen__logo"/>
-                        <ui:VisualElement class="main-screen__wordmark">
-                            <ui:Label text="Board Enthusiasts" class="main-screen__wordmark__title"/>
-                            <ui:Label text="For Board Players and Builders" class="main-screen__wordmark__subtitle"/>
+                    <ui:VisualElement class="main-screen__header__primary row">
+                        <ui:VisualElement class="main-screen__header__logo row">
+                            <ui:VisualElement class="main-screen__logo"/>
+                            <ui:VisualElement class="main-screen__wordmark">
+                                <ui:Label text="Board Enthusiasts" class="main-screen__wordmark__title"/>
+                                <ui:Label text="For Board Players and Builders" class="main-screen__wordmark__subtitle"/>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="main-screen__quick-actions row">
+                            <ui:VisualElement name="quick-youtube" class="main-screen__nav-button main-screen__quick-link-button"/>
+                            <ui:VisualElement name="quick-gpt" class="main-screen__nav-button main-screen__quick-link-button"/>
+                            <ui:VisualElement name="quick-bug-report" class="main-screen__nav-button main-screen__quick-link-button"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement class="main-screen__nav row">
