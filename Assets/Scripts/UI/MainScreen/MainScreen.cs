@@ -415,7 +415,6 @@ public class MainScreen : MonoBehaviour
         _isBeHomeHeartbeatInFlight = false;
         _isBeHomeMetricsInFlight = false;
         CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
-        SetBeHomeActiveSummary(null);
         LogBrowseMessage(
             $"BE Home analytics endpoints are unavailable at {BeHomeProjectSettings.GetConfiguredApiBaseUrl()}. " +
             "Disabling native analytics for this session until the internal API routes are deployed.");
@@ -435,25 +434,6 @@ public class MainScreen : MonoBehaviour
             CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
             RequestBeHomePresenceHeartbeat();
         }
-    }
-
-    private void SetBeHomeActiveSummary(BeHomeAggregateMetrics metrics)
-    {
-        if (_beHomeActiveSummary == null)
-        {
-            return;
-        }
-
-        if (metrics == null)
-        {
-            _beHomeActiveSummary.style.display = DisplayStyle.None;
-            _beHomeActiveSummary.text = string.Empty;
-            return;
-        }
-
-        string noun = metrics.ActiveNowTotal == 1 ? "player" : "players";
-        _beHomeActiveSummary.text = $"{metrics.ActiveNowTotal:N0} {noun} active in BE Home right now";
-        _beHomeActiveSummary.style.display = DisplayStyle.Flex;
     }
 
     private static bool ShouldRunBeHomeAnalytics()
