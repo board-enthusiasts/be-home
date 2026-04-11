@@ -45,6 +45,14 @@
     font-size: var(--font-size_m);
 }
 
+.main-screen__wordmark__activity {
+    display: none;
+    margin-top: 6px;
+    color: rgba(163, 245, 209, 0.94);
+    font-size: var(--font-size_s);
+    white-space: normal;
+}
+
 .main-screen__nav {
     align-items: center;
     flex-shrink: 0;

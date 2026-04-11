@@ -62,6 +62,16 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     /// </summary>
     public const string StagingEmbeddedBrowsePageUrl = "https://staging.boardenthusiasts.com/browse?embed=board";
 
+    /// <summary>
+    /// The hosted API base URL for the production BE environment.
+    /// </summary>
+    public const string ProductionApiBaseUrl = "https://api.boardenthusiasts.com";
+
+    /// <summary>
+    /// The hosted API base URL for the staging BE environment.
+    /// </summary>
+    public const string StagingApiBaseUrl = "https://api.staging.boardenthusiasts.com";
+
     [SerializeField]
     private BeHomeTargetEnvironment m_targetEnvironment = BeHomeTargetEnvironment.Production;
 
@@ -82,6 +92,16 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     /// Gets the configured hosted browse URL for the current build.
     /// </summary>
     public string BrowsePageUrl => ResolveBrowsePageUrl(m_targetEnvironment, m_browsePresentationMode);
+
+    /// <summary>
+    /// Gets the configured hosted API base URL for the current build.
+    /// </summary>
+    public string ApiBaseUrl => ResolveApiBaseUrl(m_targetEnvironment);
+
+    /// <summary>
+    /// Gets the maintained BE environment name for the current build.
+    /// </summary>
+    public string AppEnvironmentName => ResolveAppEnvironmentName(m_targetEnvironment);
 
 #if UNITY_EDITOR
     /// <summary>
@@ -116,6 +136,30 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     }
 
     /// <summary>
+    /// Resolves the hosted API base URL that BE Home should use at runtime.
+    /// </summary>
+    /// <returns>The configured API base URL, or the production API base URL when no settings asset is present.</returns>
+    public static string GetConfiguredApiBaseUrl()
+    {
+        var settings = Load();
+        return settings != null
+            ? settings.ApiBaseUrl
+            : ProductionApiBaseUrl;
+    }
+
+    /// <summary>
+    /// Resolves the maintained BE environment name for the current build.
+    /// </summary>
+    /// <returns>The configured BE environment name, or <c>production</c> when no settings asset is present.</returns>
+    public static string GetConfiguredAppEnvironmentName()
+    {
+        var settings = Load();
+        return settings != null
+            ? settings.AppEnvironmentName
+            : ResolveAppEnvironmentName(BeHomeTargetEnvironment.Production);
+    }
+
+    /// <summary>
     /// Resolves the hosted browse URL for the given environment and presentation mode.
     /// </summary>
     /// <param name="targetEnvironment">The configured hosted website environment.</param>
@@ -135,5 +179,29 @@ public sealed class BeHomeProjectSettings : ScriptableObject
         return browsePresentationMode == BeHomeBrowsePresentationMode.EmbeddedBoardShell
             ? ProductionEmbeddedBrowsePageUrl
             : ProductionFullWebsiteBrowsePageUrl;
+    }
+
+    /// <summary>
+    /// Resolves the hosted API base URL for the given environment.
+    /// </summary>
+    /// <param name="targetEnvironment">The configured hosted website environment.</param>
+    /// <returns>The fully resolved API base URL for the supplied environment.</returns>
+    public static string ResolveApiBaseUrl(BeHomeTargetEnvironment targetEnvironment)
+    {
+        return targetEnvironment == BeHomeTargetEnvironment.Staging
+            ? StagingApiBaseUrl
+            : ProductionApiBaseUrl;
+    }
+
+    /// <summary>
+    /// Resolves the maintained BE environment name for the given environment selection.
+    /// </summary>
+    /// <param name="targetEnvironment">The configured hosted website environment.</param>
+    /// <returns>The BE environment name used in internal telemetry payloads.</returns>
+    public static string ResolveAppEnvironmentName(BeHomeTargetEnvironment targetEnvironment)
+    {
+        return targetEnvironment == BeHomeTargetEnvironment.Staging
+            ? "staging"
+            : "production";
     }
 }

@@ -19,5 +19,11 @@ public static class AndroidMethodNames
     /// Method name for getting an integer from the static global settings object.
     /// </summary>
     public const string GetInt = "getInt";
+
+    /// <summary>
+    /// Method name for getting a string from the static secure settings object.
+    /// </summary>
+    public const string GetString = "getString";
+
 }
 }

@@ -1,8 +1,16 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Android;
+
+using BoardEnthusiasts.BeHome.Api.DeviceIdentity;
+using BoardEnthusiasts.BeHome.Api.Http;
+using BoardEnthusiasts.BeHome.Api.Models;
+using BoardEnthusiasts.BeHome.Api.Services;
 
 using Board.Core;
 
@@ -45,11 +53,14 @@ public class MainScreen : MonoBehaviour
     public const string QuickYoutubeButtonName = "quick-youtube";
     public const string QuickGptButtonName = "quick-gpt";
     public const string QuickBugReportButtonName = "quick-bug-report";
+    public const string BeHomeActiveSummaryName = "be-home-active-summary";
     public const string QuickLinkOfflineModifierClassName = ClassName + "__quick-link-button--offline";
 
     private const int BrowseLayoutRefreshIntervalMs = 250;
     private const int BrowseRetryIntervalMs = 10000;
     private const int BrowseOverlayAnimationIntervalMs = 33;
+    private const int DefaultBeHomeHeartbeatIntervalSeconds = 60;
+    private const int BeHomeApiTimeoutSeconds = 10;
     private const float BrowseOverlayAnimationAngleDegrees = 10f;
     private const float BrowseOverlayAnimationFrequency = 2.5f;
     private const string LoadingOverlayTitle = "Loading...";
@@ -63,6 +74,7 @@ public class MainScreen : MonoBehaviour
     private const string QuickGptUrl = "https://chatgpt.com/g/g-69b033db223c81919edf748c33b08b3f-board-enthusiast";
     private const string BeHomeAuthStateMessageType = "be-home-auth-state";
     private const string BeHomeOpenExternalUrlMessageType = "be-home-open-external-url";
+    private const string BeHomeRouteStateMessageType = "be-home-route-state";
     private const int AndroidForceDarkModeOn = 2;
     private const int AndroidForceDarkModeOff = 0;
     private const float ExternalLoadErrorGracePeriodSeconds = 60f;
@@ -75,6 +87,7 @@ public class MainScreen : MonoBehaviour
     private VisualElement _browseOverlayLogo;
     private Label _browseOverlayTitle;
     private Label _browseOverlayBody;
+    private Label _beHomeActiveSummary;
     private VisualElement _externalBrowserBackdrop;
     private VisualElement _externalBrowserSurface;
     private VisualElement _externalBrowserHost;
@@ -93,11 +106,22 @@ public class MainScreen : MonoBehaviour
     private IVisualElementScheduledItem _browseLayoutRefresh;
     private IVisualElementScheduledItem _browseRetryRefresh;
     private IVisualElementScheduledItem _browseOverlayAnimation;
+    private readonly BeHomeBrowseNavigationPolicy _browseNavigationPolicy = new BeHomeBrowseNavigationPolicy();
+    private BeHomeApiTransport _beHomeApiTransport;
+    private IBeHomePresenceService _beHomePresenceService;
+    private IBeHomeMetricsService _beHomeMetricsService;
+    private BeHomePresenceCoordinator _beHomePresenceCoordinator;
     private bool _isUiBuilt;
+    private bool _isBeHomeHeartbeatInFlight;
+    private bool _isBeHomeMetricsInFlight;
+    private bool _isBeHomeAnalyticsUnavailable;
+    private bool _hasSentBeHomeHeartbeat;
     private bool _hasLoadedBrowseContent;
     private bool _isBrowseOffline;
     private bool _isExternalBrowserOpen;
+    private string _lastHostedBrowseRoute;
     private bool _isExternalNoticeOpen;
+    private int _beHomeHeartbeatIntervalSeconds = DefaultBeHomeHeartbeatIntervalSeconds;
     private string _browsePageUrl;
     private string _browseSiteHost;
     private string _externalBrowseUrl;
@@ -115,6 +139,7 @@ public class MainScreen : MonoBehaviour
         _uiDocument = this.GetRequiredComponent<UIDocument>();
         _browsePageUrl = BeHomeProjectSettings.GetConfiguredBrowsePageUrl();
         _browseSiteHost = TryGetHost(_browsePageUrl);
+        InitializeBeHomeApiClient();
     }
 
     private void OnEnable()
@@ -122,6 +147,7 @@ public class MainScreen : MonoBehaviour
         BoardApplication.ShowProfileSwitcher();
         BoardApplication.pauseScreenActionReceived += OnPauseScreenActionReceived;
         BuildUI();
+        StartBeHomeAnalytics();
         StartBrowseSpike();
     }
 
@@ -129,12 +155,15 @@ public class MainScreen : MonoBehaviour
     {
         BoardApplication.HideProfileSwitcher();
         BoardApplication.pauseScreenActionReceived -= OnPauseScreenActionReceived;
+        StopBeHomeAnalytics();
         StopBrowseSpike();
     }
 
     private void OnDestroy()
     {
         DestroyBrowseSpike();
+        _beHomeApiTransport?.Dispose();
+        _beHomeApiTransport = null;
     }
 
     private void BuildUI()
@@ -146,6 +175,7 @@ public class MainScreen : MonoBehaviour
         _browseOverlayLogo = _root?.Q<VisualElement>(BrowseOverlayLogoName);
         _browseOverlayTitle = _root?.Q<Label>(BrowseOverlayTitleName);
         _browseOverlayBody = _root?.Q<Label>(BrowseOverlayBodyName);
+        _beHomeActiveSummary = _root?.Q<Label>(BeHomeActiveSummaryName);
         _externalBrowserBackdrop = _root?.Q<VisualElement>(ExternalBrowserBackdropName);
         _externalBrowserSurface = _root?.Q<VisualElement>(ExternalBrowserSurfaceName);
         _externalBrowserHost = _root?.Q<VisualElement>(ExternalBrowserHostName);
@@ -196,12 +226,250 @@ public class MainScreen : MonoBehaviour
         SetBrowseBackEnabled(false);
         SetDeveloperShellAccess(false);
         SetBrowseOverlay(isVisible: true, title: null, body: null);
+        SetBeHomeActiveSummary(null);
         SetExternalBrowserOverlay(isVisible: true, title: null, body: null);
         SetExternalBrowserModalVisible(false);
         SetExternalNoticeVisible(false, null, null);
         UpdateQuickLinkAvailability();
 
         _isUiBuilt = true;
+    }
+
+    private void InitializeBeHomeApiClient()
+    {
+        if (!ShouldRunBeHomeAnalytics())
+        {
+            return;
+        }
+
+        _beHomeApiTransport = new BeHomeApiTransport(
+            BeHomeProjectSettings.GetConfiguredApiBaseUrl(),
+            new UnityBeHomeJsonSerializer(),
+            TimeSpan.FromSeconds(BeHomeApiTimeoutSeconds));
+        _beHomePresenceService = new BeHomePresenceService(_beHomeApiTransport);
+        _beHomeMetricsService = new BeHomeMetricsService(_beHomeApiTransport);
+        _beHomePresenceCoordinator = new BeHomePresenceCoordinator(
+            new BeHomeDeviceIdentityProvider(new PlayerPrefsBeHomeInstallIdStore()),
+            ResolveClientVersion(),
+            BeHomeProjectSettings.GetConfiguredAppEnvironmentName());
+    }
+
+    private void StartBeHomeAnalytics()
+    {
+        if (!ShouldRunBeHomeAnalytics()
+            || _isBeHomeAnalyticsUnavailable
+            || _beHomePresenceCoordinator == null
+            || _beHomePresenceService == null
+            || _beHomeMetricsService == null)
+        {
+            SetBeHomeActiveSummary(null);
+            return;
+        }
+
+        RequestBeHomeMetricsRefresh();
+        RequestBeHomePresenceHeartbeat();
+    }
+
+    private void StopBeHomeAnalytics()
+    {
+        CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
+
+        if (_hasSentBeHomeHeartbeat && _beHomePresenceCoordinator != null && _beHomePresenceService != null)
+        {
+            _ = EndBeHomePresenceBestEffortAsync(_beHomePresenceCoordinator.SessionId);
+        }
+    }
+
+    private void RequestBeHomePresenceHeartbeat()
+    {
+        if (!ShouldRunBeHomeAnalytics()
+            || _isBeHomeAnalyticsUnavailable
+            || !isActiveAndEnabled
+            || _beHomePresenceCoordinator == null
+            || _beHomePresenceService == null)
+        {
+            return;
+        }
+
+        if (_isBeHomeHeartbeatInFlight)
+        {
+            return;
+        }
+
+        if (!IsInternetAvailable())
+        {
+            ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
+            return;
+        }
+
+        StartCoroutine(SendBeHomePresenceHeartbeatCoroutine());
+    }
+
+    private IEnumerator SendBeHomePresenceHeartbeatCoroutine()
+    {
+        _isBeHomeHeartbeatInFlight = true;
+        var heartbeatTask = _beHomePresenceService.SendHeartbeatAsync(_beHomePresenceCoordinator.CreateHeartbeat(), CancellationToken.None);
+        yield return new WaitUntil(() => heartbeatTask.IsCompleted);
+        _isBeHomeHeartbeatInFlight = false;
+
+        if (heartbeatTask.IsCanceled)
+        {
+            ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
+            yield break;
+        }
+
+        if (heartbeatTask.IsFaulted)
+        {
+            if (TryDisableBeHomeAnalyticsForMissingRoute(heartbeatTask.Exception?.GetBaseException()))
+            {
+                yield break;
+            }
+
+            LogBrowseMessage($"BE Home presence heartbeat failed: {heartbeatTask.Exception?.GetBaseException().Message ?? "Unknown error."}");
+            ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
+            yield break;
+        }
+
+        var sessionStatus = heartbeatTask.GetAwaiter().GetResult();
+        _hasSentBeHomeHeartbeat = true;
+        _beHomePresenceCoordinator.ApplySessionStatus(sessionStatus);
+        _beHomeHeartbeatIntervalSeconds = _beHomePresenceCoordinator.HeartbeatIntervalSeconds;
+        ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
+        RequestBeHomeMetricsRefresh();
+    }
+
+    private void ScheduleBeHomePresenceHeartbeat(int intervalSeconds)
+    {
+        if (!ShouldRunBeHomeAnalytics() || !isActiveAndEnabled)
+        {
+            return;
+        }
+
+        _beHomeHeartbeatIntervalSeconds = Mathf.Max(1, intervalSeconds);
+        CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
+        Invoke(nameof(RequestBeHomePresenceHeartbeat), _beHomeHeartbeatIntervalSeconds);
+    }
+
+    private void RequestBeHomeMetricsRefresh()
+    {
+        if (!ShouldRunBeHomeAnalytics()
+            || _isBeHomeAnalyticsUnavailable
+            || !isActiveAndEnabled
+            || _beHomeMetricsService == null
+            || _isBeHomeMetricsInFlight
+            || !IsInternetAvailable())
+        {
+            return;
+        }
+
+        StartCoroutine(RefreshBeHomeMetricsCoroutine());
+    }
+
+    private IEnumerator RefreshBeHomeMetricsCoroutine()
+    {
+        _isBeHomeMetricsInFlight = true;
+        var metricsTask = _beHomeMetricsService.GetMetricsAsync(CancellationToken.None);
+        yield return new WaitUntil(() => metricsTask.IsCompleted);
+        _isBeHomeMetricsInFlight = false;
+
+        if (metricsTask.IsCanceled)
+        {
+            yield break;
+        }
+
+        if (metricsTask.IsFaulted)
+        {
+            if (TryDisableBeHomeAnalyticsForMissingRoute(metricsTask.Exception?.GetBaseException()))
+            {
+                yield break;
+            }
+
+            LogBrowseMessage($"BE Home metrics refresh failed: {metricsTask.Exception?.GetBaseException().Message ?? "Unknown error."}");
+            yield break;
+        }
+
+        SetBeHomeActiveSummary(metricsTask.GetAwaiter().GetResult());
+    }
+
+    private async Task EndBeHomePresenceBestEffortAsync(string sessionId)
+    {
+        try
+        {
+            using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await _beHomePresenceService.EndSessionAsync(sessionId, cancellationSource.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogBrowseMessage($"BE Home disconnect request failed: {ex.Message}");
+        }
+    }
+
+    private bool TryDisableBeHomeAnalyticsForMissingRoute(Exception exception)
+    {
+        if (exception is not BeHomeApiException beHomeApiException || beHomeApiException.StatusCode != 404)
+        {
+            return false;
+        }
+
+        _isBeHomeAnalyticsUnavailable = true;
+        _isBeHomeHeartbeatInFlight = false;
+        _isBeHomeMetricsInFlight = false;
+        CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
+        SetBeHomeActiveSummary(null);
+        LogBrowseMessage(
+            $"BE Home analytics endpoints are unavailable at {BeHomeProjectSettings.GetConfiguredApiBaseUrl()}. " +
+            "Disabling native analytics for this session until the internal API routes are deployed.");
+        return true;
+    }
+
+    private void UpdateBeHomeAuthState(BeHomeAuthState authState)
+    {
+        if (!ShouldRunBeHomeAnalytics() || _beHomePresenceCoordinator == null || _beHomePresenceCoordinator.CurrentAuthState == authState)
+        {
+            return;
+        }
+
+        _beHomePresenceCoordinator.SetAuthState(authState);
+        if (isActiveAndEnabled)
+        {
+            CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
+            RequestBeHomePresenceHeartbeat();
+        }
+    }
+
+    private void SetBeHomeActiveSummary(BeHomeAggregateMetrics metrics)
+    {
+        if (_beHomeActiveSummary == null)
+        {
+            return;
+        }
+
+        if (metrics == null)
+        {
+            _beHomeActiveSummary.style.display = DisplayStyle.None;
+            _beHomeActiveSummary.text = string.Empty;
+            return;
+        }
+
+        string noun = metrics.ActiveNowTotal == 1 ? "player" : "players";
+        _beHomeActiveSummary.text = $"{metrics.ActiveNowTotal:N0} {noun} active in BE Home right now";
+        _beHomeActiveSummary.style.display = DisplayStyle.Flex;
+    }
+
+    private static bool ShouldRunBeHomeAnalytics()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    private static string ResolveClientVersion()
+    {
+        return !string.IsNullOrWhiteSpace(Application.version)
+            ? Application.version
+            : "unknown";
     }
 
     private void StartBrowseSpike()
@@ -549,6 +817,7 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
+        _browseNavigationPolicy.BeginTopLevelNavigation();
         RefreshBrowseLayout();
 
         if (!keepOfflineOverlay)
@@ -1156,6 +1425,13 @@ public class MainScreen : MonoBehaviour
         public string url;
     }
 
+    [Serializable]
+    private sealed class BeHomeRouteStateMessage
+    {
+        public string type;
+        public string path;
+    }
+
     private void HandleBrowseJavaScriptMessage(string message)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -1165,6 +1441,20 @@ public class MainScreen : MonoBehaviour
 
         try
         {
+            if (message.Contains(BeHomeRouteStateMessageType, StringComparison.Ordinal))
+            {
+                var routeState = JsonUtility.FromJson<BeHomeRouteStateMessage>(message);
+                if (routeState != null
+                    && string.Equals(routeState.type, BeHomeRouteStateMessageType, StringComparison.Ordinal)
+                    && !string.IsNullOrWhiteSpace(routeState.path)
+                    && !string.Equals(_lastHostedBrowseRoute, routeState.path, StringComparison.Ordinal))
+                {
+                    _lastHostedBrowseRoute = routeState.path;
+                    LogBrowseMessage($"Hosted route changed to {routeState.path}");
+                    return;
+                }
+            }
+
             if (message.Contains(BeHomeOpenExternalUrlMessageType, StringComparison.Ordinal))
             {
                 var openExternalUrlMessage = JsonUtility.FromJson<BeHomeOpenExternalUrlMessage>(message);
@@ -1186,6 +1476,7 @@ public class MainScreen : MonoBehaviour
 
             bool hasDeveloperShellAccess = authState.authenticated && HasDeveloperShellAccess(authState.roles);
             SetDeveloperShellAccess(hasDeveloperShellAccess);
+            UpdateBeHomeAuthState(authState.authenticated ? BeHomeAuthState.SignedIn : BeHomeAuthState.Anonymous);
             LogBrowseMessage(
                 $"Received auth bridge state: authenticated={authState.authenticated}, developerShellAccess={hasDeveloperShellAccess}, displayName={authState.displayName ?? "(none)"}");
         }
@@ -1223,6 +1514,7 @@ public class MainScreen : MonoBehaviour
 
     private void HandleBrowseStarted(string url)
     {
+        _browseNavigationPolicy.BeginTopLevelNavigation();
         RefreshBrowseLayout();
 
         if (!_isBrowseOffline && !_hasLoadedBrowseContent)
@@ -1246,6 +1538,7 @@ public class MainScreen : MonoBehaviour
         }
 
         _hasLoadedBrowseContent = true;
+        _browseNavigationPolicy.MarkPrimaryContentLoaded();
         _isBrowseOffline = false;
         StopBrowseRetry();
         HideBrowseOverlay();
@@ -1256,6 +1549,12 @@ public class MainScreen : MonoBehaviour
 
     private void HandleBrowseLoadError(string message)
     {
+        if (!_browseNavigationPolicy.ShouldTreatLoadErrorAsUnavailable())
+        {
+            LogBrowseMessage($"Ignoring browse load error after primary content already loaded: {message}");
+            return;
+        }
+
         HandleBrowseUnavailable(message);
     }
 
@@ -1318,6 +1617,7 @@ public class MainScreen : MonoBehaviour
 
     private void HandleBrowseUnavailable(string message)
     {
+        _browseNavigationPolicy.MarkPrimaryContentUnavailable();
         _hasLoadedBrowseContent = false;
         _isBrowseOffline = true;
         _browseWebView?.SetVisibility(false);

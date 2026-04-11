@@ -150,7 +150,6 @@ public static class AndroidUtility
         try
         {
             using var resolver = Call<AndroidJavaObject>(AndroidMethodNames.GetContentResolver);
-            UnityEngine.Debug.LogError($"Content resolver: {resolver}");
             using var settingsGlobal = new AndroidJavaClass(AndroidClassNames.GlobalSettings);
 
             int enabled = settingsGlobal.CallStatic<int>(

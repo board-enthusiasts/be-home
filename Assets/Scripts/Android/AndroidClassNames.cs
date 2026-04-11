@@ -19,5 +19,11 @@ public static class AndroidClassNames
     /// Class name for the Android global settings.
     /// </summary>
     public const string GlobalSettings = "android.provider.Settings$Global";
+
+    /// <summary>
+    /// Class name for the Android secure settings.
+    /// </summary>
+    public const string SecureSettings = "android.provider.Settings$Secure";
+
 }
 }
