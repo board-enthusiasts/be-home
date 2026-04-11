@@ -226,7 +226,6 @@ public class MainScreen : MonoBehaviour
         SetBrowseBackEnabled(false);
         SetDeveloperShellAccess(false);
         SetBrowseOverlay(isVisible: true, title: null, body: null);
-        SetBeHomeActiveSummary(null);
         SetExternalBrowserOverlay(isVisible: true, title: null, body: null);
         SetExternalBrowserModalVisible(false);
         SetExternalNoticeVisible(false, null, null);
@@ -262,7 +261,6 @@ public class MainScreen : MonoBehaviour
             || _beHomePresenceService == null
             || _beHomeMetricsService == null)
         {
-            SetBeHomeActiveSummary(null);
             return;
         }
 
@@ -385,10 +383,7 @@ public class MainScreen : MonoBehaviour
             }
 
             LogBrowseMessage($"BE Home metrics refresh failed: {metricsTask.Exception?.GetBaseException().Message ?? "Unknown error."}");
-            yield break;
         }
-
-        SetBeHomeActiveSummary(metricsTask.GetAwaiter().GetResult());
     }
 
     private async Task EndBeHomePresenceBestEffortAsync(string sessionId)
