@@ -114,6 +114,7 @@ public class MainScreen : MonoBehaviour
     private bool _isUiBuilt;
     private bool _isBeHomeHeartbeatInFlight;
     private bool _isBeHomeMetricsInFlight;
+    private bool _hasPendingBeHomeMetricsRefresh;
     private bool _isBeHomeAnalyticsUnavailable;
     private bool _hasSentBeHomeHeartbeat;
     private bool _hasLoadedBrowseContent;
@@ -264,8 +265,8 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
-        RequestBeHomeMetricsRefresh();
         RequestBeHomePresenceHeartbeat();
+        RequestBeHomeMetricsRefresh();
     }
 
     private void StopBeHomeAnalytics()
@@ -333,7 +334,7 @@ public class MainScreen : MonoBehaviour
         _beHomePresenceCoordinator.ApplySessionStatus(sessionStatus);
         _beHomeHeartbeatIntervalSeconds = _beHomePresenceCoordinator.HeartbeatIntervalSeconds;
         ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
-        RequestBeHomeMetricsRefresh();
+        RequestBeHomeMetricsRefresh(force: true);
     }
 
     private void ScheduleBeHomePresenceHeartbeat(int intervalSeconds)
@@ -348,15 +349,24 @@ public class MainScreen : MonoBehaviour
         Invoke(nameof(RequestBeHomePresenceHeartbeat), _beHomeHeartbeatIntervalSeconds);
     }
 
-    private void RequestBeHomeMetricsRefresh()
+    private void RequestBeHomeMetricsRefresh(bool force = false)
     {
         if (!ShouldRunBeHomeAnalytics()
             || _isBeHomeAnalyticsUnavailable
             || !isActiveAndEnabled
             || _beHomeMetricsService == null
-            || _isBeHomeMetricsInFlight
             || !IsInternetAvailable())
         {
+            return;
+        }
+
+        if (_isBeHomeMetricsInFlight)
+        {
+            if (force)
+            {
+                _hasPendingBeHomeMetricsRefresh = true;
+            }
+
             return;
         }
 
@@ -383,7 +393,29 @@ public class MainScreen : MonoBehaviour
             }
 
             LogBrowseMessage($"BE Home metrics refresh failed: {metricsTask.Exception?.GetBaseException().Message ?? "Unknown error."}");
+            yield break;
         }
+
+        UpdateBeHomeActiveSummary(metricsTask.GetAwaiter().GetResult());
+
+        if (_hasPendingBeHomeMetricsRefresh)
+        {
+            _hasPendingBeHomeMetricsRefresh = false;
+            RequestBeHomeMetricsRefresh();
+        }
+    }
+
+    private void UpdateBeHomeActiveSummary(BeHomeAggregateMetrics metrics)
+    {
+        if (_beHomeActiveSummary == null || metrics == null)
+        {
+            return;
+        }
+
+        var activeNowTotal = Math.Max(0, metrics.ActiveNowTotal);
+        _beHomeActiveSummary.text = activeNowTotal == 1
+            ? "1 player active in BE Home right now"
+            : $"{activeNowTotal} players active in BE Home right now";
     }
 
     private async Task EndBeHomePresenceBestEffortAsync(string sessionId)
@@ -409,6 +441,7 @@ public class MainScreen : MonoBehaviour
         _isBeHomeAnalyticsUnavailable = true;
         _isBeHomeHeartbeatInFlight = false;
         _isBeHomeMetricsInFlight = false;
+        _hasPendingBeHomeMetricsRefresh = false;
         CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
         LogBrowseMessage(
             $"BE Home analytics endpoints are unavailable at {BeHomeProjectSettings.GetConfiguredApiBaseUrl()}. " +
