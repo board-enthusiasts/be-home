@@ -41,6 +41,37 @@
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
+                <ui:VisualElement name="native-browse-host" class="main-screen__native-browse-host">
+                    <ui:VisualElement name="native-browse-root" class="be-home-native-browse">
+                        <ui:VisualElement class="be-home-native-browse__hero">
+                            <ui:VisualElement class="be-home-native-browse__hero-copy">
+                                <ui:Label name="native-browse-heading" text="Native Browse Spike" class="be-home-native-browse__heading"/>
+                                <ui:Label name="native-browse-subtitle" class="be-home-native-browse__subtitle"/>
+                            </ui:VisualElement>
+                            <ui:Button name="native-browse-refresh" text="Refresh catalog" class="be-home-native-browse__refresh"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="be-home-native-browse__status-row">
+                            <ui:Label name="native-browse-status" class="be-home-native-browse__status"/>
+                            <ui:Label name="native-browse-message" class="be-home-native-browse__message"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="be-home-native-browse__body row">
+                            <ui:VisualElement class="be-home-native-browse__column be-home-native-browse__column--list">
+                                <ui:VisualElement name="native-browse-empty" class="be-home-native-browse__empty-state">
+                                    <ui:Label name="native-browse-empty-title" class="be-home-native-browse__empty-title"/>
+                                    <ui:Label name="native-browse-empty-body" class="be-home-native-browse__empty-body"/>
+                                </ui:VisualElement>
+                                <ui:ScrollView name="native-browse-list" class="be-home-native-browse__list"/>
+                            </ui:VisualElement>
+                            <ui:VisualElement class="be-home-native-browse__column be-home-native-browse__column--detail">
+                                <ui:Label text="Selected Title" class="be-home-native-browse__detail-kicker"/>
+                                <ui:Label name="native-browse-selection-title" class="be-home-native-browse__detail-title"/>
+                                <ui:Label name="native-browse-selection-studio" class="be-home-native-browse__detail-studio"/>
+                                <ui:Label name="native-browse-selection-meta" class="be-home-native-browse__detail-meta"/>
+                                <ui:Label name="native-browse-selection-description" class="be-home-native-browse__detail-description"/>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
                 <ui:VisualElement name="external-browser-backdrop" class="main-screen__external-browser-backdrop">
                     <ui:VisualElement picking-mode="Ignore" class="main-screen__external-browser-shadow main-screen__external-browser-shadow--outer"/>
                     <ui:VisualElement picking-mode="Ignore" class="main-screen__external-browser-shadow main-screen__external-browser-shadow--mid"/>

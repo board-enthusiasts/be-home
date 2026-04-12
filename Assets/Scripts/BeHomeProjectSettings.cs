@@ -17,6 +17,22 @@ public enum BeHomeBrowsePresentationMode
 }
 
 /// <summary>
+/// Defines which BE Home shell implementation should be baked into the current build.
+/// </summary>
+public enum BeHomeUiImplementationMode
+{
+    /// <summary>
+    /// Uses the maintained hosted website inside the embedded Android WebView shell.
+    /// </summary>
+    HostedWebView = 0,
+
+    /// <summary>
+    /// Uses the experimental native UI Toolkit catalog shell instead of the hosted browse site.
+    /// </summary>
+    NativeCatalogSpike = 1,
+}
+
+/// <summary>
 /// Defines which hosted BE website environment BE Home should target.
 /// </summary>
 public enum BeHomeTargetEnvironment
@@ -78,6 +94,9 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     [SerializeField]
     private BeHomeBrowsePresentationMode m_browsePresentationMode = BeHomeBrowsePresentationMode.FullWebsite;
 
+    [SerializeField]
+    private BeHomeUiImplementationMode m_uiImplementationMode = BeHomeUiImplementationMode.HostedWebView;
+
     /// <summary>
     /// Gets the configured hosted website environment for the current build.
     /// </summary>
@@ -87,6 +106,11 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     /// Gets the configured hosted browse presentation mode for the current build.
     /// </summary>
     public BeHomeBrowsePresentationMode BrowsePresentationMode => m_browsePresentationMode;
+
+    /// <summary>
+    /// Gets the configured BE Home shell implementation for the current build.
+    /// </summary>
+    public BeHomeUiImplementationMode UiImplementationMode => m_uiImplementationMode;
 
     /// <summary>
     /// Gets the configured hosted browse URL for the current build.
@@ -111,6 +135,15 @@ public sealed class BeHomeProjectSettings : ScriptableObject
     public void SetTargetEnvironment(BeHomeTargetEnvironment targetEnvironment)
     {
         m_targetEnvironment = targetEnvironment;
+    }
+
+    /// <summary>
+    /// Updates the configured BE Home shell implementation for build-time asset synchronization.
+    /// </summary>
+    /// <param name="uiImplementationMode">The shell implementation to persist into the runtime settings asset.</param>
+    public void SetUiImplementationMode(BeHomeUiImplementationMode uiImplementationMode)
+    {
+        m_uiImplementationMode = uiImplementationMode;
     }
 #endif
 
@@ -145,6 +178,18 @@ public sealed class BeHomeProjectSettings : ScriptableObject
         return settings != null
             ? settings.ApiBaseUrl
             : ProductionApiBaseUrl;
+    }
+
+    /// <summary>
+    /// Resolves the configured BE Home shell implementation for the current build.
+    /// </summary>
+    /// <returns>The configured shell implementation, or <see cref="BeHomeUiImplementationMode.HostedWebView"/> when no settings asset is present.</returns>
+    public static BeHomeUiImplementationMode GetConfiguredUiImplementationMode()
+    {
+        var settings = Load();
+        return settings != null
+            ? settings.UiImplementationMode
+            : BeHomeUiImplementationMode.HostedWebView;
     }
 
     /// <summary>

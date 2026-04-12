@@ -14,6 +14,7 @@ internal sealed class BeHomeBuildProfileEnvironmentSync :
     private static bool s_hasOriginalEnvironment;
     private static bool s_didMutateRuntimeSettings;
     private static BeHomeTargetEnvironment s_originalEnvironment;
+    private static BeHomeUiImplementationMode s_originalUiImplementationMode;
 
     /// <inheritdoc />
     public int callbackOrder => 0;
@@ -38,8 +39,11 @@ internal sealed class BeHomeBuildProfileEnvironmentSync :
         }
 
         s_originalEnvironment = settings.TargetEnvironment;
+        s_originalUiImplementationMode = settings.UiImplementationMode;
         s_hasOriginalEnvironment = true;
-        s_didMutateRuntimeSettings = settings.TargetEnvironment != profileSettings.TargetEnvironment;
+        s_didMutateRuntimeSettings =
+            settings.TargetEnvironment != profileSettings.TargetEnvironment
+            || settings.UiImplementationMode != profileSettings.UiImplementationMode;
 
         if (!s_didMutateRuntimeSettings)
         {
@@ -47,6 +51,7 @@ internal sealed class BeHomeBuildProfileEnvironmentSync :
         }
 
         settings.SetTargetEnvironment(profileSettings.TargetEnvironment);
+        settings.SetUiImplementationMode(profileSettings.UiImplementationMode);
         EditorUtility.SetDirty(settings);
         AssetDatabase.SaveAssets();
     }
@@ -69,6 +74,7 @@ internal sealed class BeHomeBuildProfileEnvironmentSync :
         if (settings != null)
         {
             settings.SetTargetEnvironment(s_originalEnvironment);
+            settings.SetUiImplementationMode(s_originalUiImplementationMode);
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssets();
         }
@@ -81,6 +87,7 @@ internal sealed class BeHomeBuildProfileEnvironmentSync :
         s_hasOriginalEnvironment = false;
         s_didMutateRuntimeSettings = false;
         s_originalEnvironment = BeHomeTargetEnvironment.Production;
+        s_originalUiImplementationMode = BeHomeUiImplementationMode.HostedWebView;
     }
 }
 #endif

@@ -11,10 +11,18 @@ public sealed class BeHomeBuildProfileSettings : ScriptableObject
     [SerializeField]
     private BeHomeTargetEnvironment m_targetEnvironment = BeHomeTargetEnvironment.Production;
 
+    [SerializeField]
+    private BeHomeUiImplementationMode m_uiImplementationMode = BeHomeUiImplementationMode.HostedWebView;
+
     /// <summary>
     /// Gets the hosted website environment override configured for the owning build profile.
     /// </summary>
     public BeHomeTargetEnvironment TargetEnvironment => m_targetEnvironment;
+
+    /// <summary>
+    /// Gets the BE Home shell implementation override configured for the owning build profile.
+    /// </summary>
+    public BeHomeUiImplementationMode UiImplementationMode => m_uiImplementationMode;
 
     /// <summary>
     /// Creates the Build Profile window section for BE Home website environment overrides.
@@ -25,7 +33,7 @@ public sealed class BeHomeBuildProfileSettings : ScriptableObject
     {
         return new BuildProfileSettingsProvider("BE Home")
         {
-            tooltip = "Overrides which hosted BE website environment this build profile bakes into BE Home at build time.",
+            tooltip = "Overrides the hosted BE environment and optional native-vs-WebView shell mode this build profile bakes into BE Home at build time.",
             hasCustomEditor = false,
             canAddSetting = buildProfile => buildProfile != null && buildProfile.GetComponent<BeHomeBuildProfileSettings>() == null,
         };

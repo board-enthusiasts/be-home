@@ -11,6 +11,7 @@ using BoardEnthusiasts.BeHome.Api.DeviceIdentity;
 using BoardEnthusiasts.BeHome.Api.Http;
 using BoardEnthusiasts.BeHome.Api.Models;
 using BoardEnthusiasts.BeHome.Api.Services;
+using BoardEnthusiasts.BeHome.UI.NativeBrowse;
 
 using Board.Core;
 
@@ -25,6 +26,7 @@ public class MainScreen : MonoBehaviour
     public const string ClassName = "main-screen";
     public const string NavButtonClassName = ClassName + "__nav-button";
     public const string BrowseContentHostName = "browse-content-host";
+    public const string NativeBrowseHostName = "native-browse-host";
     public const string BrowseHomeButtonName = "browse-home";
     public const string BrowseBackButtonName = "browse-back";
     public const string BrowseOverlayName = "browse-overlay";
@@ -71,6 +73,8 @@ public class MainScreen : MonoBehaviour
     private const string DiscordUnavailableMessage = "Please open Discord from your laptop or desktop computer instead.";
     private const string ConnectWifiFirstTitle = "Connect your Board to Wi-Fi first";
     private const string ConnectWifiFirstMessage = "These tools need an internet connection before they can open.";
+    private const string NativeBrowseQuickLinksUnavailableTitle = "Hosted quick links are disabled in native browse mode";
+    private const string NativeBrowseQuickLinksUnavailableMessage = "This build is using the native UI spike, so the hosted WebView quick links are intentionally disabled.";
     private const string QuickYoutubeUrl = "https://m.youtube.com/@boardenthusiasts";
     private const string QuickGptUrl = "https://chatgpt.com/g/g-69b033db223c81919edf748c33b08b3f-board-enthusiast";
     private const string BeHomeAuthStateMessageType = "be-home-auth-state";
@@ -85,6 +89,7 @@ public class MainScreen : MonoBehaviour
     private UIDocument _uiDocument;
     private VisualElement _root;
     private VisualElement _browseContentHost;
+    private VisualElement _nativeBrowseHost;
     private VisualElement _browseBackButton;
     private VisualElement _browseOverlay;
     private VisualElement _browseOverlayLogo;
@@ -112,8 +117,11 @@ public class MainScreen : MonoBehaviour
     private readonly BeHomeBrowseNavigationPolicy _browseNavigationPolicy = new BeHomeBrowseNavigationPolicy();
     private readonly BeHomePresenceLeasePolicy _beHomePresenceLeasePolicy = new BeHomePresenceLeasePolicy(BeHomePresenceLeaseRenewAfterSeconds);
     private BeHomeApiTransport _beHomeApiTransport;
+    private IBeHomeCatalogService _beHomeCatalogService;
     private IBeHomePresenceService _beHomePresenceService;
     private BeHomePresenceCoordinator _beHomePresenceCoordinator;
+    private BeHomeNativeBrowseController _nativeBrowseController;
+    private BeHomeUiImplementationMode _uiImplementationMode;
     private bool _isUiBuilt;
     private bool _isBeHomePresenceRegistrationInFlight;
     private bool _isBeHomeAnalyticsUnavailable;
@@ -144,6 +152,7 @@ public class MainScreen : MonoBehaviour
     private void Awake()
     {
         _uiDocument = this.GetRequiredComponent<UIDocument>();
+        _uiImplementationMode = BeHomeProjectSettings.GetConfiguredUiImplementationMode();
         _browsePageUrl = BeHomeProjectSettings.GetConfiguredBrowsePageUrl();
         _browseSiteHost = TryGetHost(_browsePageUrl);
         InitializeBeHomeApiClient();
@@ -177,6 +186,7 @@ public class MainScreen : MonoBehaviour
     {
         _root = _uiDocument.rootVisualElement.Q(className: ClassName);
         _browseContentHost = _root?.Q<VisualElement>(BrowseContentHostName);
+        _nativeBrowseHost = _root?.Q<VisualElement>(NativeBrowseHostName);
         _browseBackButton = _root?.Q<VisualElement>(BrowseBackButtonName);
         _browseOverlay = _root?.Q<VisualElement>(BrowseOverlayName);
         _browseOverlayLogo = _root?.Q<VisualElement>(BrowseOverlayLogoName);
@@ -237,6 +247,8 @@ public class MainScreen : MonoBehaviour
         SetExternalBrowserOverlay(isVisible: true, title: null, body: null);
         SetExternalBrowserModalVisible(false);
         SetExternalNoticeVisible(false, null, null);
+        SetHostedBrowseVisible(true);
+        SetNativeBrowseVisible(false);
         UpdateQuickLinkAvailability();
 
         _isUiBuilt = true;
@@ -244,21 +256,25 @@ public class MainScreen : MonoBehaviour
 
     private void InitializeBeHomeApiClient()
     {
-        if (!ShouldRunBeHomeAnalytics())
+        if (ShouldRunBeHomeAnalytics())
         {
-            return;
+            _beHomePresenceCoordinator = new BeHomePresenceCoordinator(
+                new BeHomeDeviceIdentityProvider(new PlayerPrefsBeHomeInstallIdStore()),
+                ResolveClientVersion(),
+                BeHomeProjectSettings.GetConfiguredAppEnvironmentName());
         }
 
-        _beHomePresenceCoordinator = new BeHomePresenceCoordinator(
-            new BeHomeDeviceIdentityProvider(new PlayerPrefsBeHomeInstallIdStore()),
-            ResolveClientVersion(),
-            BeHomeProjectSettings.GetConfiguredAppEnvironmentName());
         _beHomeApiTransport = new BeHomeApiTransport(
             BeHomeProjectSettings.GetConfiguredApiBaseUrl(),
             new UnityBeHomeJsonSerializer(),
             TimeSpan.FromSeconds(BeHomeApiTimeoutSeconds),
             _beHomePresenceCoordinator);
-        _beHomePresenceService = new BeHomePresenceService(_beHomeApiTransport);
+        _beHomeCatalogService = new BeHomeCatalogService(_beHomeApiTransport);
+
+        if (_beHomePresenceCoordinator != null)
+        {
+            _beHomePresenceService = new BeHomePresenceService(_beHomeApiTransport);
+        }
     }
 
     private void StartBeHomeAnalytics()
@@ -468,9 +484,22 @@ public class MainScreen : MonoBehaviour
             : "unknown";
     }
 
+    private bool IsNativeBrowseModeEnabled()
+    {
+        return _uiImplementationMode == BeHomeUiImplementationMode.NativeCatalogSpike;
+    }
+
     private void StartBrowseSpike()
     {
+        if (IsNativeBrowseModeEnabled())
+        {
+            StartNativeBrowseSpike();
+            return;
+        }
+
         ScheduleBrowseOverlayAnimation();
+        SetHostedBrowseVisible(true);
+        SetNativeBrowseVisible(false);
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         EnsureBrowseWebView();
@@ -514,13 +543,48 @@ public class MainScreen : MonoBehaviour
 #endif
     }
 
+    private void StartNativeBrowseSpike()
+    {
+        CloseExternalBrowser();
+        HideExternalNotice();
+        _browseOverlayAnimation?.Pause();
+        SetBrowseBackEnabled(false);
+        SetHostedBrowseVisible(false);
+        SetNativeBrowseVisible(true);
+
+        if (_nativeBrowseHost == null || _beHomeCatalogService == null)
+        {
+            SetHostedBrowseVisible(true);
+            SetNativeBrowseVisible(false);
+            ShowMessageOverlay("Native browse is unavailable on this build.", "The BE API client did not initialize for the native browse spike.");
+            return;
+        }
+
+        _nativeBrowseController ??= new BeHomeNativeBrowseController(
+            new BeHomeNativeBrowseModel(
+                BeHomeProjectSettings.GetConfiguredAppEnvironmentName(),
+                BeHomeProjectSettings.GetConfiguredApiBaseUrl()),
+            new BeHomeNativeBrowseView(),
+            _beHomeCatalogService,
+            message => LogBrowseMessage(message));
+        _nativeBrowseController.Initialize(_nativeBrowseHost);
+        LogBrowseMessage($"Starting native browse spike against {BeHomeProjectSettings.GetConfiguredApiBaseUrl()}.");
+    }
+
     private void StopBrowseSpike()
     {
         _browseLayoutRefresh?.Pause();
         _browseRetryRefresh?.Pause();
         _browseOverlayAnimation?.Pause();
         CloseExternalBrowser();
+        HideExternalNotice();
         SetBrowseBackEnabled(false);
+
+        if (IsNativeBrowseModeEnabled())
+        {
+            _nativeBrowseController?.Dispose();
+            _nativeBrowseController = null;
+        }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         _browseWebView?.SetVisibility(false);
@@ -537,6 +601,8 @@ public class MainScreen : MonoBehaviour
         _browseOverlayAnimation = null;
         _beHomePresenceLeaseRefresh?.Pause();
         _beHomePresenceLeaseRefresh = null;
+        _nativeBrowseController?.Dispose();
+        _nativeBrowseController = null;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (_browseWebView != null)
@@ -687,9 +753,14 @@ public class MainScreen : MonoBehaviour
 
     private void RefreshBrowseLayout()
     {
-#if UNITY_ANDROID && !UNITY_EDITOR
         UpdateQuickLinkAvailability();
 
+        if (IsNativeBrowseModeEnabled())
+        {
+            return;
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
         if (_root == null)
         {
             return;
@@ -713,6 +784,12 @@ public class MainScreen : MonoBehaviour
 
     private void OpenBugReportQuickLink()
     {
+        if (IsNativeBrowseModeEnabled())
+        {
+            ShowExternalNotice(NativeBrowseQuickLinksUnavailableTitle, NativeBrowseQuickLinksUnavailableMessage);
+            return;
+        }
+
         if (!IsInternetAvailable())
         {
             ShowExternalNotice(ConnectWifiFirstTitle, ConnectWifiFirstMessage);
@@ -725,6 +802,12 @@ public class MainScreen : MonoBehaviour
 
     private void OpenOnlineQuickLink(string url)
     {
+        if (IsNativeBrowseModeEnabled())
+        {
+            ShowExternalNotice(NativeBrowseQuickLinksUnavailableTitle, NativeBrowseQuickLinksUnavailableMessage);
+            return;
+        }
+
         if (!IsInternetAvailable())
         {
             ShowExternalNotice(ConnectWifiFirstTitle, ConnectWifiFirstMessage);
@@ -742,10 +825,13 @@ public class MainScreen : MonoBehaviour
 
     private void UpdateQuickLinkAvailability()
     {
-        bool isOffline = !IsInternetAvailable();
-        SetQuickLinkOfflineState(_quickYoutubeButton, isOffline);
-        SetQuickLinkOfflineState(_quickGptButton, isOffline);
-        SetQuickLinkOfflineState(_quickBugReportButton, isOffline);
+        bool isUnavailable = IsNativeBrowseModeEnabled() || !IsInternetAvailable();
+        SetQuickLinkOfflineState(_quickYoutubeButton, isUnavailable);
+        SetQuickLinkOfflineState(_quickGptButton, isUnavailable);
+        SetQuickLinkOfflineState(_quickBugReportButton, isUnavailable);
+        _quickYoutubeButton?.SetEnabled(!isUnavailable);
+        _quickGptButton?.SetEnabled(!isUnavailable);
+        _quickBugReportButton?.SetEnabled(!isUnavailable);
     }
 
     private static void SetQuickLinkOfflineState(VisualElement button, bool isOffline)
@@ -836,6 +922,17 @@ public class MainScreen : MonoBehaviour
 
     private void GoBackInBrowse()
     {
+        if (IsNativeBrowseModeEnabled())
+        {
+            if (_isExternalNoticeOpen)
+            {
+                HideExternalNotice();
+            }
+
+            SetBrowseBackEnabled(false);
+            return;
+        }
+
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (_isExternalNoticeOpen)
         {
@@ -874,6 +971,13 @@ public class MainScreen : MonoBehaviour
 
     private void GoHomeInBrowse()
     {
+        if (IsNativeBrowseModeEnabled())
+        {
+            _nativeBrowseController?.RequestRefresh();
+            LogBrowseMessage("Refreshing native browse home.");
+            return;
+        }
+
 #if UNITY_ANDROID && !UNITY_EDITOR
         CloseExternalBrowser();
         _lastHostedBrowseRoute = null;
@@ -891,6 +995,22 @@ public class MainScreen : MonoBehaviour
         }
 
         _browseBackButton.SetEnabled(isEnabled);
+    }
+
+    private void SetHostedBrowseVisible(bool isVisible)
+    {
+        if (_browseContentHost != null)
+        {
+            _browseContentHost.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+    }
+
+    private void SetNativeBrowseVisible(bool isVisible)
+    {
+        if (_nativeBrowseHost != null)
+        {
+            _nativeBrowseHost.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
     }
 
     private void SetDeveloperShellAccess(bool hasAccess)

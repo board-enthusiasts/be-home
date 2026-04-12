@@ -37,6 +37,9 @@ internal static class BeHomeProjectSettingsProvider
                 "production",
                 "website",
                 "sign in",
+                "native",
+                "catalog",
+                "ui toolkit",
             },
         };
     }
@@ -93,6 +96,10 @@ internal static class BeHomeProjectSettingsProvider
             serializedSettings.FindProperty("m_browsePresentationMode"),
             new GUIContent("Browse Presentation Mode"));
 
+        EditorGUILayout.PropertyField(
+            serializedSettings.FindProperty("m_uiImplementationMode"),
+            new GUIContent("UI Implementation Mode"));
+
         EditorGUILayout.Space();
         var activeBuildProfile = BuildProfile.GetActiveBuildProfile();
         var activeBuildProfileSettings = activeBuildProfile != null
@@ -101,6 +108,9 @@ internal static class BeHomeProjectSettingsProvider
         var effectiveEnvironment = activeBuildProfileSettings != null
             ? activeBuildProfileSettings.TargetEnvironment
             : settings.TargetEnvironment;
+        var effectiveUiImplementationMode = activeBuildProfileSettings != null
+            ? activeBuildProfileSettings.UiImplementationMode
+            : settings.UiImplementationMode;
         var resolvedBrowseUrl = BeHomeProjectSettings.ResolveBrowsePageUrl(
             effectiveEnvironment,
             settings.BrowsePresentationMode);
@@ -110,6 +120,10 @@ internal static class BeHomeProjectSettingsProvider
             activeBuildProfileSettings != null
                 ? effectiveEnvironment.ToString()
                 : "None (using default project setting)",
+            EditorStyles.wordWrappedLabel);
+        EditorGUILayout.LabelField(
+            "Active Build UI Mode",
+            effectiveUiImplementationMode.ToString(),
             EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField("Resolved Build URL", resolvedBrowseUrl, EditorStyles.wordWrappedLabel);
 
