@@ -1391,6 +1391,30 @@ public class MainScreen : MonoBehaviour
         return BeHomeBrowseUrlResolver.ResolveBrowseSiteUrl(_browsePageUrl, routeOrUrl);
     }
 
+    private bool TryHandleRestrictedThinLayerRoute(string routeOrUrl)
+    {
+        if (!BeHomeThinLayerRoutePolicy.IsRestrictedWorkspaceRoute(routeOrUrl))
+        {
+            return false;
+        }
+
+        _lastHostedBrowseRoute = routeOrUrl;
+        _lastResolvedBrowseUrl = ResolveBrowseSiteUrl(routeOrUrl);
+        ShowExternalNotice(
+            BeHomeThinLayerRoutePolicy.RestrictedWorkspaceNoticeTitle,
+            BeHomeThinLayerRoutePolicy.RestrictedWorkspaceNoticeMessage);
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (_browseWebView != null)
+        {
+            LoadBrowseUrl(_browsePageUrl);
+        }
+#endif
+
+        LogBrowseMessage($"Blocked thin-layer navigation to restricted workspace route: {routeOrUrl}. Returning to {_browsePageUrl}");
+        return true;
+    }
+
     private string ResolveActiveBrowseUrl()
     {
         return BeHomeBrowseUrlResolver.ResolveActiveBrowseUrl(
@@ -1628,6 +1652,11 @@ public class MainScreen : MonoBehaviour
                     && !string.IsNullOrWhiteSpace(routeState.path)
                     && !string.Equals(_lastHostedBrowseRoute, routeState.path, StringComparison.Ordinal))
                 {
+                    if (TryHandleRestrictedThinLayerRoute(routeState.path))
+                    {
+                        return;
+                    }
+
                     _lastHostedBrowseRoute = routeState.path;
                     _lastResolvedBrowseUrl = ResolveBrowseSiteUrl(routeState.path);
                     LogBrowseMessage($"Hosted route changed to {routeState.path} ({_lastResolvedBrowseUrl})");
@@ -1643,6 +1672,11 @@ public class MainScreen : MonoBehaviour
                 {
                     if (!string.IsNullOrWhiteSpace(diagnostics.route))
                     {
+                        if (TryHandleRestrictedThinLayerRoute(diagnostics.route))
+                        {
+                            return;
+                        }
+
                         _lastHostedBrowseRoute = diagnostics.route;
                         _lastResolvedBrowseUrl = ResolveBrowseSiteUrl(diagnostics.route);
                     }
@@ -1705,6 +1739,13 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
+        if (BeHomeThinLayerRoutePolicy.IsRestrictedWorkspaceRoute(url))
+        {
+            CloseExternalBrowser();
+            TryHandleRestrictedThinLayerRoute(url);
+            return;
+        }
+
         CloseExternalBrowser();
         _lastResolvedBrowseUrl = ResolveBrowseSiteUrl(url);
         LoadBrowseUrl(url);
@@ -1713,6 +1754,13 @@ public class MainScreen : MonoBehaviour
 
     private void HandleBrowseStarted(string url)
     {
+        if (!string.IsNullOrWhiteSpace(url)
+            && IsBrowseSiteUrl(url)
+            && TryHandleRestrictedThinLayerRoute(url))
+        {
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(url) && IsBrowseSiteUrl(url))
         {
             _lastResolvedBrowseUrl = url;
