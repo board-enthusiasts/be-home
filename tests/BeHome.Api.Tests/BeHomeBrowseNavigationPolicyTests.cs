@@ -41,4 +41,39 @@ public sealed class BeHomeBrowseNavigationPolicyTests
 
         Assert.That(policy.ShouldTreatLoadErrorAsUnavailable(), Is.True);
     }
+
+    [Test]
+    public void ShouldAttemptBlankPageRecovery_AfterPrimaryContentLoaded_ReturnsTrueUntilAttemptIsSpent()
+    {
+        var policy = new BeHomeBrowseNavigationPolicy();
+        policy.MarkPrimaryContentLoaded();
+
+        Assert.That(policy.ShouldAttemptBlankPageRecovery(), Is.True);
+
+        policy.MarkBlankPageRecoveryAttempted();
+
+        Assert.That(policy.ShouldAttemptBlankPageRecovery(), Is.False);
+    }
+
+    [Test]
+    public void ShouldAttemptBlankPageRecovery_DuringTopLevelNavigation_ReturnsFalse()
+    {
+        var policy = new BeHomeBrowseNavigationPolicy();
+        policy.MarkPrimaryContentLoaded();
+        policy.BeginTopLevelNavigation();
+
+        Assert.That(policy.ShouldAttemptBlankPageRecovery(), Is.False);
+    }
+
+    [Test]
+    public void MarkPrimaryContentLoaded_AfterRecoveryAttempt_RearmsBlankPageRecovery()
+    {
+        var policy = new BeHomeBrowseNavigationPolicy();
+        policy.MarkPrimaryContentLoaded();
+        policy.MarkBlankPageRecoveryAttempted();
+
+        policy.MarkPrimaryContentLoaded();
+
+        Assert.That(policy.ShouldAttemptBlankPageRecovery(), Is.True);
+    }
 }

@@ -8,6 +8,8 @@ using System.Globalization;
 
 using BoardEnthusiasts.BeHome.Api.Models;
 
+using UnityEngine;
+
 namespace BoardEnthusiasts.BeHome.Api.Http
 {
 /// <summary>
@@ -69,8 +71,8 @@ public sealed class BeHomeApiException : Exception
     /// <param name="message">The exception message.</param>
     /// <param name="statusCode">The optional HTTP status code returned by the API.</param>
     /// <param name="responseBody">The optional response body returned by the API.</param>
-    public BeHomeApiException(string message, int? statusCode = null, string responseBody = null)
-        : base(message)
+    public BeHomeApiException(string message, int? statusCode = null, string responseBody = null, Exception innerException = null)
+        : base(message, innerException)
     {
         StatusCode = statusCode;
         ResponseBody = responseBody;
@@ -161,19 +163,45 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
     /// <inheritdoc/>
     public async Task<TResponse> GetAsync<TResponse>(string relativePath, CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Get, relativePath);
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        return await ReadResponseAsync<TResponse>(response, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var request = CreateRequest(HttpMethod.Get, relativePath);
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            return await ReadResponseAsync<TResponse>(response, cancellationToken).ConfigureAwait(false);
+        }
+        catch (BeHomeApiException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new BeHomeApiException(
+                $"The BE API request to {relativePath} could not be sent. {ex.Message}",
+                innerException: ex);
+        }
     }
 
     /// <inheritdoc/>
     public async Task<TResponse> PostJsonAsync<TRequest, TResponse>(string relativePath, TRequest request, CancellationToken cancellationToken = default)
     {
-        using var httpRequest = CreateRequest(HttpMethod.Post, relativePath);
-        httpRequest.Content = new StringContent(_jsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        try
+        {
+            using var httpRequest = CreateRequest(HttpMethod.Post, relativePath);
+            httpRequest.Content = new StringContent(_jsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
 
-        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
-        return await ReadResponseAsync<TResponse>(response, cancellationToken).ConfigureAwait(false);
+            using var response = await _httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+            return await ReadResponseAsync<TResponse>(response, cancellationToken).ConfigureAwait(false);
+        }
+        catch (BeHomeApiException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new BeHomeApiException(
+                $"The BE API request to {relativePath} could not be sent. {ex.Message}",
+                innerException: ex);
+        }
     }
 
     /// <inheritdoc/>
@@ -193,6 +221,7 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
         }
 
         var request = new HttpRequestMessage(method, new Uri(_baseUri, relativePath.TrimStart('/')));
+        request.Version = new Version(1, 1);
         request.Headers.Accept.Clear();
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (_presenceSnapshotProvider?.ShouldIncludeCommunityMetrics(relativePath) ?? false)

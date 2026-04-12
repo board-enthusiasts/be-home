@@ -25,6 +25,7 @@ public class MainScreen : MonoBehaviour
     public const string ClassName = "main-screen";
     public const string NavButtonClassName = ClassName + "__nav-button";
     public const string BrowseContentHostName = "browse-content-host";
+    public const string BrowseHomeButtonName = "browse-home";
     public const string BrowseBackButtonName = "browse-back";
     public const string BrowseOverlayName = "browse-overlay";
     public const string BrowseOverlayLogoName = "browse-overlay-logo";
@@ -71,6 +72,7 @@ public class MainScreen : MonoBehaviour
     private const string QuickYoutubeUrl = "https://m.youtube.com/@boardenthusiasts";
     private const string QuickGptUrl = "https://chatgpt.com/g/g-69b033db223c81919edf748c33b08b3f-board-enthusiast";
     private const string BeHomeAuthStateMessageType = "be-home-auth-state";
+    private const string BeHomeDiagnosticsMessageType = "be-home-diagnostics";
     private const string BeHomeOpenExternalUrlMessageType = "be-home-open-external-url";
     private const string BeHomeRouteStateMessageType = "be-home-route-state";
     private const string WebViewRenderProcessGoneErrorPrefix = "RENDER_PROCESS_GONE\t";
@@ -119,7 +121,12 @@ public class MainScreen : MonoBehaviour
     private string _browsePageUrl;
     private string _browseSiteHost;
     private string _externalBrowseUrl;
+    private string _lastHostedDiagnosticsSummary;
     private string _lastResolvedBrowseUrl;
+    private string _lastBrowseStartedUrl;
+    private float _lastBrowseStartedAt;
+    private string _lastBrowseLoadedUrl;
+    private float _lastBrowseLoadedAt;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
     private bool _hasLoadedExternalContent;
@@ -191,6 +198,8 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
+        var browseHomeButton = _root?.Q(BrowseHomeButtonName, NavButtonClassName);
+        browseHomeButton?.AddManipulator(new Clickable(GoHomeInBrowse));
         var appsButton = _root?.Q(AppsButtonName, NavButtonClassName);
         appsButton?.AddManipulator(new Clickable(AndroidUtility.OpenAppSettings));
         var bluetoothButton = _root?.Q(BluetoothSettingsButtonName, NavButtonClassName);
@@ -312,7 +321,7 @@ public class MainScreen : MonoBehaviour
                 yield break;
             }
 
-            LogBrowseMessage($"BE Home initial presence registration failed: {registrationTask.Exception?.GetBaseException().Message ?? "Unknown error."}");
+            LogBrowseMessage($"BE Home initial presence registration failed: {registrationTask.Exception?.GetBaseException() ?? new Exception("Unknown error.")}");
             yield break;
         }
     }
@@ -326,7 +335,7 @@ public class MainScreen : MonoBehaviour
         }
         catch (Exception ex)
         {
-            LogBrowseMessage($"BE Home disconnect request failed: {ex.Message}");
+            LogBrowseMessage($"BE Home disconnect request failed: {ex}");
         }
     }
 
@@ -771,6 +780,17 @@ public class MainScreen : MonoBehaviour
         _browseWebView.GoBack();
         LogBrowseMessage("Going back...");
         UpdateBrowseBackState();
+#endif
+    }
+
+    private void GoHomeInBrowse()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        CloseExternalBrowser();
+        _lastHostedBrowseRoute = null;
+        _lastResolvedBrowseUrl = _browsePageUrl;
+        LoadBrowseUrl(_browsePageUrl);
+        LogBrowseMessage($"Returning browse surface to home: {_browsePageUrl}");
 #endif
     }
 
@@ -1323,6 +1343,25 @@ public class MainScreen : MonoBehaviour
         return $@"^https?://{escapedHost}(?::\d+)?(?:[/?#].*)?$";
     }
 
+    private string BuildBrowseDiagnosticsContext()
+    {
+        string hostedRoute = string.IsNullOrWhiteSpace(_lastHostedBrowseRoute) ? "(none)" : _lastHostedBrowseRoute;
+        string hostedSummary = string.IsNullOrWhiteSpace(_lastHostedDiagnosticsSummary) ? "(none)" : _lastHostedDiagnosticsSummary;
+        string lastStartedUrl = string.IsNullOrWhiteSpace(_lastBrowseStartedUrl) ? "(none)" : _lastBrowseStartedUrl;
+        string lastLoadedUrl = string.IsNullOrWhiteSpace(_lastBrowseLoadedUrl) ? "(none)" : _lastBrowseLoadedUrl;
+        return $"hostedRoute={hostedRoute}; hosted={hostedSummary}; lastStart={lastStartedUrl}; lastLoad={lastLoadedUrl}; lastLoadDuration={FormatBrowseDuration(_lastBrowseStartedAt, _lastBrowseLoadedAt)}";
+    }
+
+    private static string FormatBrowseDuration(float startedAt, float completedAt)
+    {
+        if (startedAt <= 0f || completedAt <= 0f || completedAt < startedAt)
+        {
+            return "n/a";
+        }
+
+        return $"{completedAt - startedAt:0.00}s";
+    }
+
     private static void LogBrowseMessage(string message)
     {
         UnityEngine.Debug.Log($"[MainScreen] {message}");
@@ -1415,6 +1454,24 @@ public class MainScreen : MonoBehaviour
                 }
             }
 
+            if (message.Contains(BeHomeDiagnosticsMessageType, StringComparison.Ordinal))
+            {
+                var diagnostics = JsonUtility.FromJson<BeHomeBrowseDiagnostics>(message);
+                if (diagnostics != null
+                    && string.Equals(diagnostics.type, BeHomeDiagnosticsMessageType, StringComparison.Ordinal))
+                {
+                    if (!string.IsNullOrWhiteSpace(diagnostics.route))
+                    {
+                        _lastHostedBrowseRoute = diagnostics.route;
+                        _lastResolvedBrowseUrl = ResolveBrowseSiteUrl(diagnostics.route);
+                    }
+
+                    _lastHostedDiagnosticsSummary = BeHomeBrowseDiagnosticsFormatter.Summarize(diagnostics);
+                    LogBrowseMessage($"Hosted diagnostics updated: {_lastHostedDiagnosticsSummary}");
+                    return;
+                }
+            }
+
             if (message.Contains(BeHomeOpenExternalUrlMessageType, StringComparison.Ordinal))
             {
                 var openExternalUrlMessage = JsonUtility.FromJson<BeHomeOpenExternalUrlMessage>(message);
@@ -1480,6 +1537,8 @@ public class MainScreen : MonoBehaviour
             _lastResolvedBrowseUrl = url;
         }
 
+        _lastBrowseStartedUrl = url;
+        _lastBrowseStartedAt = Time.unscaledTime;
         _browseNavigationPolicy.BeginTopLevelNavigation();
         RefreshBrowseLayout();
 
@@ -1490,7 +1549,7 @@ public class MainScreen : MonoBehaviour
         }
 
         UpdateBrowseBackState();
-        LogBrowseMessage($"Loading {url}");
+        LogBrowseMessage($"Loading {url} | {BuildBrowseDiagnosticsContext()}");
     }
 
     private void HandleBrowseLoaded(string url)
@@ -1499,6 +1558,11 @@ public class MainScreen : MonoBehaviour
 
         if (IsBlankBrowsePage(url))
         {
+            if (TryRecoverBrowseWebViewFromBlankPage())
+            {
+                return;
+            }
+
             HandleBrowseUnavailable($"The WebView reported a blank page for {_browsePageUrl}.");
             return;
         }
@@ -1514,8 +1578,10 @@ public class MainScreen : MonoBehaviour
         StopBrowseRetry();
         HideBrowseOverlay();
         _browseWebView?.SetVisibility(true);
+        _lastBrowseLoadedUrl = url;
+        _lastBrowseLoadedAt = Time.unscaledTime;
         UpdateBrowseBackState();
-        LogBrowseMessage($"Loaded {url}");
+        LogBrowseMessage($"Loaded {url} in {FormatBrowseDuration(_lastBrowseStartedAt, _lastBrowseLoadedAt)} | {BuildBrowseDiagnosticsContext()}");
     }
 
     private void HandleBrowseLoadError(string message)
@@ -1528,7 +1594,7 @@ public class MainScreen : MonoBehaviour
 
         if (!_browseNavigationPolicy.ShouldTreatLoadErrorAsUnavailable())
         {
-            LogBrowseMessage($"Ignoring browse load error after primary content already loaded: {message}");
+            LogBrowseMessage($"Ignoring browse load error after primary content already loaded: {message} | {BuildBrowseDiagnosticsContext()}");
             return;
         }
 
@@ -1607,14 +1673,32 @@ public class MainScreen : MonoBehaviour
         ShowOfflineOverlay();
         ScheduleBrowseRetry();
         UpdateBrowseBackState();
-        LogBrowseMessage($"Browse unavailable: {message}");
+        LogBrowseMessage($"Browse unavailable: {message} | {BuildBrowseDiagnosticsContext()}");
+    }
+
+    private bool TryRecoverBrowseWebViewFromBlankPage()
+    {
+        if (!_browseNavigationPolicy.ShouldAttemptBlankPageRecovery())
+        {
+            return false;
+        }
+
+        _browseNavigationPolicy.MarkBlankPageRecoveryAttempted();
+        RecoverBrowseWebView("Blank page reported after prior successful browse load");
+        return true;
     }
 
     private void RecoverBrowseWebViewAfterRendererCrash(string detail)
     {
-        string recoveryUrl = ResolveActiveBrowseUrl();
-        LogBrowseMessage($"Browse WebView renderer exited ({detail}). Recreating browse surface for {recoveryUrl}.");
+        RecoverBrowseWebView($"Renderer exited ({detail})");
+    }
 
+    private void RecoverBrowseWebView(string reason)
+    {
+        string recoveryUrl = ResolveActiveBrowseUrl();
+        LogBrowseMessage($"Browse WebView recovery requested: {reason}. Recreating browse surface for {recoveryUrl}. | {BuildBrowseDiagnosticsContext()}");
+
+        _browseNavigationPolicy.BeginTopLevelNavigation();
         _hasLoadedBrowseContent = false;
         _isBrowseOffline = false;
         StopBrowseRetry();

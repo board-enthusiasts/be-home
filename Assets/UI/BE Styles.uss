@@ -55,6 +55,7 @@
     --icon_bug-report: url("Textures/Icons/bug_report_24dp.svg");
     --icon_gpt: url("Textures/Icons/auto_awesome_24dp.svg");
     --icon_youtube: url("Textures/Icons/youtube_24dp.svg");
+    --icon_home: url("Textures/Icons/home_24dp.svg");
     
     /** Spacing **/
     --spacing_default: 16px;

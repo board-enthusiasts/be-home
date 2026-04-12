@@ -117,6 +117,10 @@
     background-image: var(--icon_data-object);
 }
 
+.main-screen__nav-button#browse-home {
+    background-image: var(--icon_home);
+}
+
 .main-screen__nav-button#quick-youtube {
     background-image: var(--icon_youtube);
     background-size: 55% 40%;

@@ -5,6 +5,7 @@ public sealed class BeHomeBrowseNavigationPolicy
 {
     private bool _hasLoadedPrimaryContent;
     private bool _topLevelNavigationPending;
+    private bool _blankPageRecoveryAttempted;
 
     /// <summary>
     /// Records that the shell has initiated a top-level browse navigation.
@@ -21,6 +22,7 @@ public sealed class BeHomeBrowseNavigationPolicy
     {
         _hasLoadedPrimaryContent = true;
         _topLevelNavigationPending = false;
+        _blankPageRecoveryAttempted = false;
     }
 
     /// <summary>
@@ -30,6 +32,7 @@ public sealed class BeHomeBrowseNavigationPolicy
     {
         _hasLoadedPrimaryContent = false;
         _topLevelNavigationPending = false;
+        _blankPageRecoveryAttempted = false;
     }
 
     /// <summary>
@@ -39,5 +42,24 @@ public sealed class BeHomeBrowseNavigationPolicy
     public bool ShouldTreatLoadErrorAsUnavailable()
     {
         return !_hasLoadedPrimaryContent || _topLevelNavigationPending;
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether a sudden blank-page load should trigger a one-time WebView recovery attempt.
+    /// </summary>
+    /// <returns><see langword="true"/> when the browse surface had already loaded successfully and has not used its recovery attempt yet; otherwise, <see langword="false"/>.</returns>
+    public bool ShouldAttemptBlankPageRecovery()
+    {
+        return _hasLoadedPrimaryContent
+            && !_topLevelNavigationPending
+            && !_blankPageRecoveryAttempted;
+    }
+
+    /// <summary>
+    /// Records that the browse surface has spent its current blank-page recovery attempt.
+    /// </summary>
+    public void MarkBlankPageRecoveryAttempted()
+    {
+        _blankPageRecoveryAttempted = true;
     }
 }
