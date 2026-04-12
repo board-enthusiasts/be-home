@@ -81,6 +81,7 @@ public class MainScreen : MonoBehaviour
     private const string BeHomeDiagnosticsMessageType = "be-home-diagnostics";
     private const string BeHomeOpenExternalUrlMessageType = "be-home-open-external-url";
     private const string BeHomeRouteStateMessageType = "be-home-route-state";
+    private const string BeHomeTitleDetailViewMessageType = "be-home-title-detail-view";
     private const string WebViewRenderProcessGoneErrorPrefix = "RENDER_PROCESS_GONE\t";
     private const int AndroidForceDarkModeOn = 2;
     private const int AndroidForceDarkModeOff = 0;
@@ -119,6 +120,7 @@ public class MainScreen : MonoBehaviour
     private BeHomeApiTransport _beHomeApiTransport;
     private IBeHomeCatalogService _beHomeCatalogService;
     private IBeHomePresenceService _beHomePresenceService;
+    private IBeHomeTitleAnalyticsService _beHomeTitleAnalyticsService;
     private BeHomePresenceCoordinator _beHomePresenceCoordinator;
     private BeHomeNativeBrowseController _nativeBrowseController;
     private BeHomeUiImplementationMode _uiImplementationMode;
@@ -274,6 +276,7 @@ public class MainScreen : MonoBehaviour
         if (_beHomePresenceCoordinator != null)
         {
             _beHomePresenceService = new BeHomePresenceService(_beHomeApiTransport);
+            _beHomeTitleAnalyticsService = new BeHomeTitleAnalyticsService(_beHomeApiTransport);
         }
     }
 
@@ -410,6 +413,41 @@ public class MainScreen : MonoBehaviour
 
         LogBrowseMessage($"BE Home auth bridge state changed from {previousAuthState} to {authState}. Requesting immediate presence refresh.");
         RequestBeHomePresenceRegistration();
+    }
+
+    private void RequestBeHomeTitleDetailViewRecording(string titleId, string studioSlug, string titleSlug, string route, string surface)
+    {
+        if (!ShouldRunBeHomeAnalytics()
+            || _isBeHomeAnalyticsUnavailable
+            || _beHomeTitleAnalyticsService == null
+            || string.IsNullOrWhiteSpace(titleId)
+            || !IsInternetAvailable())
+        {
+            return;
+        }
+
+        _beHomePresenceCoordinator?.MarkUserInteraction();
+        _ = RecordBeHomeTitleDetailViewBestEffortAsync(
+            new BeHomeTitleDetailViewRecord(
+                titleId,
+                studioSlug,
+                titleSlug,
+                route,
+                string.IsNullOrWhiteSpace(surface) ? "title-detail" : surface));
+    }
+
+    private async Task RecordBeHomeTitleDetailViewBestEffortAsync(BeHomeTitleDetailViewRecord record)
+    {
+        try
+        {
+            using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await _beHomeTitleAnalyticsService.RecordTitleDetailViewAsync(record, cancellationSource.Token).ConfigureAwait(false);
+            LogBrowseMessage($"Recorded BE Home title detail view: titleId={record.TitleId}, route={record.Route}");
+        }
+        catch (Exception ex)
+        {
+            LogBrowseMessage($"BE Home title detail view recording failed: {ex}");
+        }
     }
 
     private void TryRequestFollowUpPresenceRegistration(BeHomeAuthState registeredAuthState, string completionState)
@@ -1635,6 +1673,17 @@ public class MainScreen : MonoBehaviour
         public string path;
     }
 
+    [Serializable]
+    private sealed class BeHomeTitleDetailViewMessage
+    {
+        public string type;
+        public string titleId;
+        public string studioSlug;
+        public string titleSlug;
+        public string route;
+        public string surface;
+    }
+
     private void HandleBrowseJavaScriptMessage(string message)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -1683,6 +1732,23 @@ public class MainScreen : MonoBehaviour
 
                     _lastHostedDiagnosticsSummary = BeHomeBrowseDiagnosticsFormatter.Summarize(diagnostics);
                     LogBrowseMessage($"Hosted diagnostics updated: {_lastHostedDiagnosticsSummary}");
+                    return;
+                }
+            }
+
+            if (message.Contains(BeHomeTitleDetailViewMessageType, StringComparison.Ordinal))
+            {
+                var titleDetailView = JsonUtility.FromJson<BeHomeTitleDetailViewMessage>(message);
+                if (titleDetailView != null
+                    && string.Equals(titleDetailView.type, BeHomeTitleDetailViewMessageType, StringComparison.Ordinal)
+                    && !string.IsNullOrWhiteSpace(titleDetailView.titleId))
+                {
+                    RequestBeHomeTitleDetailViewRecording(
+                        titleDetailView.titleId,
+                        titleDetailView.studioSlug,
+                        titleDetailView.titleSlug,
+                        titleDetailView.route,
+                        titleDetailView.surface);
                     return;
                 }
             }

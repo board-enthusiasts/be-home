@@ -135,6 +135,50 @@ public sealed class BeHomeEndedSessionDto
 }
 
 /// <summary>
+/// Wire-format request payload for a BE Home title detail view.
+/// </summary>
+[Serializable]
+public sealed class BeHomeTitleDetailViewRequestDto
+{
+    /// <summary>
+    /// The maintained title identifier.
+    /// </summary>
+    public string titleId;
+
+    /// <summary>
+    /// The public studio slug when available.
+    /// </summary>
+    public string studioSlug;
+
+    /// <summary>
+    /// The public title slug when available.
+    /// </summary>
+    public string titleSlug;
+
+    /// <summary>
+    /// The hosted route where the title detail page was opened.
+    /// </summary>
+    public string route;
+
+    /// <summary>
+    /// The hosted surface name.
+    /// </summary>
+    public string surface;
+}
+
+/// <summary>
+/// Wire-format response payload for a BE Home title detail view event.
+/// </summary>
+[Serializable]
+public sealed class BeHomeTitleDetailViewResponseDto
+{
+    /// <summary>
+    /// Indicates whether the backend accepted the title detail view.
+    /// </summary>
+    public bool accepted;
+}
+
+/// <summary>
 /// Wire-format response payload for a BE Home metrics request.
 /// </summary>
 [Serializable]

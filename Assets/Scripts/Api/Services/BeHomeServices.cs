@@ -45,6 +45,20 @@ public interface IBeHomeMetricsService
 }
 
 /// <summary>
+/// Defines title analytics operations for BE Home.
+/// </summary>
+public interface IBeHomeTitleAnalyticsService
+{
+    /// <summary>
+    /// Records that the hosted BE Home surface opened a title detail page.
+    /// </summary>
+    /// <param name="record">The title detail view to record.</param>
+    /// <param name="cancellationToken">The cancellation token for the request.</param>
+    /// <returns>A task that completes when the backend has accepted the event.</returns>
+    Task RecordTitleDetailViewAsync(BeHomeTitleDetailViewRecord record, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// Implements presence-specific API operations for BE Home.
 /// </summary>
 public sealed class BeHomePresenceService : IBeHomePresenceService
@@ -183,6 +197,52 @@ public sealed class BeHomeMetricsService : IBeHomeMetricsService
         }
 
         throw new BeHomeApiException($"The BE API returned an invalid {fieldName} timestamp.");
+    }
+}
+
+/// <summary>
+/// Implements title analytics operations for BE Home.
+/// </summary>
+public sealed class BeHomeTitleAnalyticsService : IBeHomeTitleAnalyticsService
+{
+    private const string TitleDetailViewsRoute = "/internal/be-home/title-detail-views";
+    private readonly IBeHomeApiTransport _transport;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BeHomeTitleAnalyticsService"/> class.
+    /// </summary>
+    /// <param name="transport">The maintained BE Home API transport.</param>
+    public BeHomeTitleAnalyticsService(IBeHomeApiTransport transport)
+    {
+        _transport = transport ?? throw new ArgumentNullException(nameof(transport));
+    }
+
+    /// <inheritdoc/>
+    public async Task RecordTitleDetailViewAsync(BeHomeTitleDetailViewRecord record, CancellationToken cancellationToken = default)
+    {
+        if (record == null)
+        {
+            throw new ArgumentNullException(nameof(record));
+        }
+
+        var response = await _transport
+            .PostJsonAsync<BeHomeTitleDetailViewRequestDto, BeHomeTitleDetailViewResponseDto>(
+                TitleDetailViewsRoute,
+                new BeHomeTitleDetailViewRequestDto
+                {
+                    titleId = record.TitleId,
+                    studioSlug = record.StudioSlug,
+                    titleSlug = record.TitleSlug,
+                    route = record.Route,
+                    surface = record.Surface,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (response == null || !response.accepted)
+        {
+            throw new BeHomeApiException("The BE API did not accept the BE Home title detail view.");
+        }
     }
 }
 }

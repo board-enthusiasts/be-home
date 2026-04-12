@@ -243,4 +243,59 @@ public interface IBeHomeInstallIdStore
     /// <returns>The persisted install identifier.</returns>
     string GetOrCreateInstallId();
 }
+
+/// <summary>
+/// Represents a native BE Home title detail view that should contribute to shared title analytics.
+/// </summary>
+public sealed class BeHomeTitleDetailViewRecord
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BeHomeTitleDetailViewRecord"/> class.
+    /// </summary>
+    /// <param name="titleId">The maintained title identifier.</param>
+    /// <param name="studioSlug">The public studio slug.</param>
+    /// <param name="titleSlug">The public title slug.</param>
+    /// <param name="route">The hosted route where the title detail view was opened.</param>
+    /// <param name="surface">The hosted surface name.</param>
+    public BeHomeTitleDetailViewRecord(
+        string titleId,
+        string studioSlug,
+        string titleSlug,
+        string route,
+        string surface = "title-detail")
+    {
+        TitleId = !string.IsNullOrWhiteSpace(titleId)
+            ? titleId
+            : throw new ArgumentException("A title id is required.", nameof(titleId));
+        StudioSlug = studioSlug ?? string.Empty;
+        TitleSlug = titleSlug ?? string.Empty;
+        Route = route ?? string.Empty;
+        Surface = !string.IsNullOrWhiteSpace(surface) ? surface : "title-detail";
+    }
+
+    /// <summary>
+    /// Gets the maintained title identifier.
+    /// </summary>
+    public string TitleId { get; }
+
+    /// <summary>
+    /// Gets the public studio slug when available.
+    /// </summary>
+    public string StudioSlug { get; }
+
+    /// <summary>
+    /// Gets the public title slug when available.
+    /// </summary>
+    public string TitleSlug { get; }
+
+    /// <summary>
+    /// Gets the hosted route where the title detail page was opened.
+    /// </summary>
+    public string Route { get; }
+
+    /// <summary>
+    /// Gets the hosted surface name.
+    /// </summary>
+    public string Surface { get; }
+}
 }
