@@ -33,6 +33,11 @@ public sealed class BeHomeBrowseDiagnosticsTests
         {
             surface = "quick-view",
             route = "/browse?embed=board",
+            diagnosticsReason = "surface+3000ms",
+            surfaceAgeMs = 3000,
+            documentVisibilityState = "visible",
+            documentFocusState = "focused",
+            networkState = "online",
             titleId = "title-1",
             titleDisplayName = "Lantern Drift",
             studioSlug = "blue-harbor-games",
@@ -43,6 +48,8 @@ public sealed class BeHomeBrowseDiagnosticsTests
             heroImageHost = "cdn.example.com",
             cardImageHost = "cdn.example.com",
             acquisitionHost = "publisher.example.com",
+            heroImageLoadState = "loaded",
+            selectedPreviewImageLoadState = "loaded",
             showcaseMediaCount = 3,
             showcaseImageCount = 2,
             showcaseVideoCount = 1,
@@ -56,8 +63,15 @@ public sealed class BeHomeBrowseDiagnosticsTests
 
         Assert.That(summary, Does.Contain("title=Lantern Drift [title-1]"));
         Assert.That(summary, Does.Contain("studio=Blue Harbor Games [blue-harbor-games]"));
+        Assert.That(summary, Does.Contain("reason=surface+3000ms"));
+        Assert.That(summary, Does.Contain("age=3000ms"));
         Assert.That(summary, Does.Contain("content=game"));
         Assert.That(summary, Does.Contain("preview=hero@cdn.example.com"));
+        Assert.That(summary, Does.Contain("visibility=visible"));
+        Assert.That(summary, Does.Contain("focus=focused"));
+        Assert.That(summary, Does.Contain("network=online"));
+        Assert.That(summary, Does.Contain("heroState=loaded"));
+        Assert.That(summary, Does.Contain("previewState=loaded"));
         Assert.That(summary, Does.Contain("showcase=3 (images=2, videos=1)"));
         Assert.That(summary, Does.Contain("assets=hero,card,logo,acquisition"));
     }

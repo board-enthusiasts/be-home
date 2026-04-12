@@ -63,10 +63,19 @@ public sealed class BeHomePresenceCoordinator : IBeHomePresenceSnapshotProvider
     public BeHomeAuthState CurrentAuthState { get; private set; }
 
     /// <summary>
-    /// <inheritdoc/>
-    public void SetAuthState(BeHomeAuthState authState)
+    /// Updates the mirrored BE Home auth state.
+    /// </summary>
+    /// <param name="authState">The latest auth state reported by the hosted surface.</param>
+    /// <returns><see langword="true"/> when the state changed; otherwise, <see langword="false"/>.</returns>
+    public bool SetAuthState(BeHomeAuthState authState)
     {
+        if (CurrentAuthState == authState)
+        {
+            return false;
+        }
+
         CurrentAuthState = authState;
+        return true;
     }
 
     /// <inheritdoc/>

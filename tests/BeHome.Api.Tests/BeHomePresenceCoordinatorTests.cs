@@ -42,10 +42,32 @@ public sealed class BeHomePresenceCoordinatorTests
             "2.0.0",
             "production");
 
-        coordinator.SetAuthState(BeHomeAuthState.SignedIn);
+        var changed = coordinator.SetAuthState(BeHomeAuthState.SignedIn);
         var presence = coordinator.CreatePresenceSnapshot();
 
-        Assert.That(presence.AuthState, Is.EqualTo(BeHomeAuthState.SignedIn));
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(presence.AuthState, Is.EqualTo(BeHomeAuthState.SignedIn));
+        });
+    }
+
+    [Test]
+    public void SetAuthState_ReturnsFalseWhenStateDoesNotChange()
+    {
+        var coordinator = new BeHomePresenceCoordinator(
+            new StubDeviceIdentityProvider(new BeHomeDeviceIdentity("board-123", BeHomeDeviceIdSource.AndroidSecureAndroidId)),
+            "2.0.0",
+            "production");
+
+        var changed = coordinator.SetAuthState(BeHomeAuthState.Anonymous);
+        var presence = coordinator.CreatePresenceSnapshot();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.False);
+            Assert.That(presence.AuthState, Is.EqualTo(BeHomeAuthState.Anonymous));
+        });
     }
 
     [Test]

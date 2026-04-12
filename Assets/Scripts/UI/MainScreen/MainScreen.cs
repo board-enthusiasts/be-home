@@ -313,12 +313,14 @@ public class MainScreen : MonoBehaviour
     private IEnumerator RegisterBeHomePresenceCoroutine()
     {
         _isBeHomePresenceRegistrationInFlight = true;
-        var registrationTask = _beHomePresenceService.RegisterSessionAsync(_beHomePresenceCoordinator.CreatePresenceSnapshot(), CancellationToken.None);
+        var requestedPresence = _beHomePresenceCoordinator.CreatePresenceSnapshot();
+        var registrationTask = _beHomePresenceService.RegisterSessionAsync(requestedPresence, CancellationToken.None);
         yield return new WaitUntil(() => registrationTask.IsCompleted);
         _isBeHomePresenceRegistrationInFlight = false;
 
         if (registrationTask.IsCanceled)
         {
+            TryRequestFollowUpPresenceRegistration(requestedPresence.AuthState, "canceled");
             yield break;
         }
 
@@ -330,12 +332,14 @@ public class MainScreen : MonoBehaviour
             }
 
             LogBrowseMessage($"BE Home initial presence registration failed: {registrationTask.Exception?.GetBaseException() ?? new Exception("Unknown error.")}");
+            TryRequestFollowUpPresenceRegistration(requestedPresence.AuthState, "failed");
             yield break;
         }
 
         _lastBeHomePresenceRefreshAt = Time.unscaledTime;
         LogBrowseMessage(
             $"BE Home presence registration accepted: session={_beHomePresenceCoordinator.SessionId}, authState={_beHomePresenceCoordinator.CurrentAuthState}, env={BeHomeProjectSettings.GetConfiguredAppEnvironmentName()}");
+        TryRequestFollowUpPresenceRegistration(requestedPresence.AuthState, "completed");
     }
 
     private async Task EndBeHomePresenceBestEffortAsync(string sessionId)
@@ -368,13 +372,43 @@ public class MainScreen : MonoBehaviour
 
     private void UpdateBeHomeAuthState(BeHomeAuthState authState)
     {
-        if (!ShouldRunBeHomeAnalytics() || _beHomePresenceCoordinator == null || _beHomePresenceCoordinator.CurrentAuthState == authState)
+        if (!ShouldRunBeHomeAnalytics() || _beHomePresenceCoordinator == null)
+        {
+            return;
+        }
+
+        var previousAuthState = _beHomePresenceCoordinator.CurrentAuthState;
+        if (!_beHomePresenceCoordinator.SetAuthState(authState))
         {
             return;
         }
 
         _beHomePresenceCoordinator.MarkUserInteraction();
-        _beHomePresenceCoordinator.SetAuthState(authState);
+        if (_isBeHomePresenceRegistrationInFlight)
+        {
+            LogBrowseMessage(
+                $"BE Home auth bridge state changed from {previousAuthState} to {authState} while presence registration is in flight. " +
+                "A follow-up presence refresh will run after the current request finishes.");
+            return;
+        }
+
+        LogBrowseMessage($"BE Home auth bridge state changed from {previousAuthState} to {authState}. Requesting immediate presence refresh.");
+        RequestBeHomePresenceRegistration();
+    }
+
+    private void TryRequestFollowUpPresenceRegistration(BeHomeAuthState registeredAuthState, string completionState)
+    {
+        if (!ShouldRunBeHomeAnalytics()
+            || _beHomePresenceCoordinator == null
+            || _beHomePresenceCoordinator.CurrentAuthState == registeredAuthState)
+        {
+            return;
+        }
+
+        LogBrowseMessage(
+            $"BE Home auth state changed during a {completionState} presence registration " +
+            $"({registeredAuthState} -> {_beHomePresenceCoordinator.CurrentAuthState}). Requesting follow-up presence refresh.");
+        RequestBeHomePresenceRegistration();
     }
 
     private void ScheduleBeHomePresenceLeaseRefresh()
@@ -1234,43 +1268,15 @@ public class MainScreen : MonoBehaviour
 
     private string ResolveBrowseSiteUrl(string routeOrUrl)
     {
-        if (string.IsNullOrWhiteSpace(routeOrUrl))
-        {
-            return _browsePageUrl;
-        }
-
-        if (Uri.TryCreate(routeOrUrl, UriKind.Absolute, out var absoluteUri))
-        {
-            return absoluteUri.ToString();
-        }
-
-        if (!Uri.TryCreate(_browsePageUrl, UriKind.Absolute, out var browseUri))
-        {
-            return routeOrUrl;
-        }
-
-        return new Uri(browseUri, routeOrUrl).ToString();
+        return BeHomeBrowseUrlResolver.ResolveBrowseSiteUrl(_browsePageUrl, routeOrUrl);
     }
 
     private string ResolveActiveBrowseUrl()
     {
-        if (!string.IsNullOrWhiteSpace(_lastResolvedBrowseUrl))
-        {
-            return _lastResolvedBrowseUrl;
-        }
-
-        if (string.IsNullOrWhiteSpace(_lastHostedBrowseRoute)
-            || !Uri.TryCreate(_browsePageUrl, UriKind.Absolute, out var browseUri))
-        {
-            return _browsePageUrl;
-        }
-
-        if (Uri.TryCreate(_lastHostedBrowseRoute, UriKind.Absolute, out var absoluteUri))
-        {
-            return absoluteUri.ToString();
-        }
-
-        return new Uri(browseUri, _lastHostedBrowseRoute).ToString();
+        return BeHomeBrowseUrlResolver.ResolveActiveBrowseUrl(
+            _browsePageUrl,
+            _lastResolvedBrowseUrl,
+            _lastHostedBrowseRoute);
     }
 
     private static bool TryGetWebViewRenderProcessGoneDetail(string message, out string detail)

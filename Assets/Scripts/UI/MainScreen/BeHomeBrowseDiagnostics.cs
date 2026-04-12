@@ -7,6 +7,11 @@ public sealed class BeHomeBrowseDiagnostics
     public string type;
     public string surface;
     public string route;
+    public string diagnosticsReason;
+    public int surfaceAgeMs;
+    public string documentVisibilityState;
+    public string documentFocusState;
+    public string networkState;
     public string titleId;
     public string studioId;
     public string studioSlug;
@@ -28,6 +33,8 @@ public sealed class BeHomeBrowseDiagnostics
     public int searchQueryLength;
     public int selectedStudiosCount;
     public int selectedGenresCount;
+    public string heroImageLoadState;
+    public string selectedPreviewImageLoadState;
     public bool hasHeroImage;
     public bool hasCardImage;
     public bool hasLogoImage;
@@ -46,6 +53,12 @@ public static class BeHomeBrowseDiagnosticsFormatter
         var parts = new List<string>();
         AddNamedValue(parts, "surface", diagnostics.surface);
         AddNamedValue(parts, "route", diagnostics.route);
+        AddNamedValue(parts, "reason", diagnostics.diagnosticsReason);
+
+        if (!string.IsNullOrWhiteSpace(diagnostics.diagnosticsReason) || diagnostics.surfaceAgeMs > 0)
+        {
+            parts.Add($"age={Math.Max(0, diagnostics.surfaceAgeMs)}ms");
+        }
 
         var titleSummary = BuildEntitySummary(diagnostics.titleDisplayName, diagnostics.titleSlug, diagnostics.titleId);
         if (!string.IsNullOrWhiteSpace(titleSummary))
@@ -64,6 +77,11 @@ public static class BeHomeBrowseDiagnosticsFormatter
         AddNamedValue(parts, "heroHost", diagnostics.heroImageHost);
         AddNamedValue(parts, "cardHost", diagnostics.cardImageHost);
         AddNamedValue(parts, "acquisitionHost", diagnostics.acquisitionHost);
+        AddNamedValue(parts, "visibility", diagnostics.documentVisibilityState);
+        AddNamedValue(parts, "focus", diagnostics.documentFocusState);
+        AddNamedValue(parts, "network", diagnostics.networkState);
+        AddNamedValue(parts, "heroState", diagnostics.heroImageLoadState);
+        AddNamedValue(parts, "previewState", diagnostics.selectedPreviewImageLoadState);
 
         if (string.Equals(diagnostics.surface, "browse", StringComparison.Ordinal))
         {
