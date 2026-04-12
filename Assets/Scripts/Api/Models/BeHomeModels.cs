@@ -128,6 +128,18 @@ public interface IBeHomePresenceSnapshotProvider
     /// </summary>
     /// <returns>The current BE Home presence snapshot.</returns>
     BeHomePresenceSnapshot CreatePresenceSnapshot();
+
+    /// <summary>
+    /// Records that the player just performed an interaction that should allow nearby requests to ask for community metrics.
+    /// </summary>
+    void MarkUserInteraction();
+
+    /// <summary>
+    /// Determines whether the supplied BE API route should opt in to community metrics headers.
+    /// </summary>
+    /// <param name="relativePath">The path relative to the configured API base URL.</param>
+    /// <returns><see langword="true"/> when the request should ask for community metrics headers; otherwise, <see langword="false"/>.</returns>
+    bool ShouldIncludeCommunityMetrics(string relativePath);
 }
 
 /// <summary>

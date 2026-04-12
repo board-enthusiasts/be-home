@@ -10,9 +10,15 @@ namespace BoardEnthusiasts.BeHome.Api.Services
 /// </summary>
 public sealed class BeHomePresenceCoordinator : IBeHomePresenceSnapshotProvider
 {
+    private const string PresenceEndRoute = "/internal/be-home/presence/end";
+    private const string MetricsRoute = "/internal/be-home/metrics";
+    private static readonly TimeSpan DefaultCommunityMetricsOptInWindow = TimeSpan.FromSeconds(5);
     private readonly BeHomeDeviceIdentity _deviceIdentity;
     private readonly string _clientVersion;
     private readonly string _appEnvironment;
+    private readonly Func<DateTimeOffset> _utcNow;
+    private readonly TimeSpan _communityMetricsOptInWindow;
+    private DateTimeOffset _lastUserInteractionAt;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BeHomePresenceCoordinator"/> class.
@@ -25,7 +31,9 @@ public sealed class BeHomePresenceCoordinator : IBeHomePresenceSnapshotProvider
         IBeHomeDeviceIdentityProvider deviceIdentityProvider,
         string clientVersion,
         string appEnvironment,
-        string? sessionId = null)
+        string? sessionId = null,
+        Func<DateTimeOffset>? utcNow = null,
+        TimeSpan? communityMetricsOptInWindow = null)
     {
         if (deviceIdentityProvider == null)
         {
@@ -35,10 +43,13 @@ public sealed class BeHomePresenceCoordinator : IBeHomePresenceSnapshotProvider
         _deviceIdentity = deviceIdentityProvider.GetDeviceIdentity() ?? throw new ArgumentException("A device identity is required.", nameof(deviceIdentityProvider));
         _clientVersion = clientVersion ?? string.Empty;
         _appEnvironment = appEnvironment ?? string.Empty;
+        _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
+        _communityMetricsOptInWindow = communityMetricsOptInWindow ?? DefaultCommunityMetricsOptInWindow;
         SessionId = !string.IsNullOrWhiteSpace(sessionId)
             ? sessionId
             : Guid.NewGuid().ToString("N");
         CurrentAuthState = BeHomeAuthState.Anonymous;
+        _lastUserInteractionAt = _utcNow();
     }
 
     /// <summary>
@@ -58,6 +69,12 @@ public sealed class BeHomePresenceCoordinator : IBeHomePresenceSnapshotProvider
         CurrentAuthState = authState;
     }
 
+    /// <inheritdoc/>
+    public void MarkUserInteraction()
+    {
+        _lastUserInteractionAt = _utcNow();
+    }
+
     /// <summary>
     /// Builds the current BE Home presence snapshot from the local session state.
     /// </summary>
@@ -65,6 +82,22 @@ public sealed class BeHomePresenceCoordinator : IBeHomePresenceSnapshotProvider
     public BeHomePresenceSnapshot CreatePresenceSnapshot()
     {
         return new BeHomePresenceSnapshot(SessionId, _deviceIdentity, CurrentAuthState, _clientVersion, _appEnvironment);
+    }
+
+    /// <inheritdoc/>
+    public bool ShouldIncludeCommunityMetrics(string relativePath)
+    {
+        if (string.Equals(relativePath, PresenceEndRoute, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (string.Equals(relativePath, MetricsRoute, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return (_utcNow() - _lastUserInteractionAt) <= _communityMetricsOptInWindow;
     }
 }
 }

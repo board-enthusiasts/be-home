@@ -4,10 +4,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Globalization;
 
 using BoardEnthusiasts.BeHome.Api.Models;
-
-using UnityEngine;
 
 namespace BoardEnthusiasts.BeHome.Api.Http
 {
@@ -123,7 +122,13 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
     private readonly HttpClient _httpClient;
     private readonly IBeHomeJsonSerializer _jsonSerializer;
     private readonly IBeHomePresenceSnapshotProvider _presenceSnapshotProvider;
+    private readonly SynchronizationContext _callbackContext;
     private readonly bool _disposeHttpClient;
+
+    /// <summary>
+    /// Raised when the transport observes updated community metrics in response headers.
+    /// </summary>
+    public event Action<BeHomeAggregateMetrics> CommunityMetricsUpdated;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BeHomeApiTransport"/> class.
@@ -147,6 +152,7 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
 
         _jsonSerializer = jsonSerializer ?? throw new ArgumentNullException(nameof(jsonSerializer));
         _presenceSnapshotProvider = presenceSnapshotProvider;
+        _callbackContext = SynchronizationContext.Current;
         _httpClient = httpClient ?? new HttpClient();
         _httpClient.Timeout = timeout;
         _disposeHttpClient = httpClient == null;
@@ -189,6 +195,11 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
         var request = new HttpRequestMessage(method, new Uri(_baseUri, relativePath.TrimStart('/')));
         request.Headers.Accept.Clear();
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        if (_presenceSnapshotProvider?.ShouldIncludeCommunityMetrics(relativePath) ?? false)
+        {
+            request.Headers.TryAddWithoutValidation("x-be-accept-community-metrics", "1");
+        }
+
         AppendPassivePresenceHeaders(request, relativePath);
         return request;
     }
@@ -225,6 +236,8 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
 
     private async Task<TResponse> ReadResponseAsync<TResponse>(HttpResponseMessage response, CancellationToken cancellationToken)
     {
+        TryPublishCommunityMetrics(response);
+
         string responseBody = response.Content != null
             ? await response.Content.ReadAsStringAsync().ConfigureAwait(false)
             : string.Empty;
@@ -243,6 +256,70 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
         }
 
         return _jsonSerializer.Deserialize<TResponse>(responseBody);
+    }
+
+    private void TryPublishCommunityMetrics(HttpResponseMessage response)
+    {
+        if (!TryReadCommunityMetrics(response, out var metrics) || metrics == null)
+        {
+            return;
+        }
+
+        if (_callbackContext != null)
+        {
+            _callbackContext.Post(_ => CommunityMetricsUpdated?.Invoke(metrics), null);
+            return;
+        }
+
+        CommunityMetricsUpdated?.Invoke(metrics);
+    }
+
+    private static bool TryReadCommunityMetrics(HttpResponseMessage response, out BeHomeAggregateMetrics metrics)
+    {
+        metrics = null;
+
+        if (!TryReadRequiredIntHeader(response, "x-be-active-now-total", out var activeNowTotal)
+            || !TryReadRequiredIntHeader(response, "x-be-active-now-anonymous", out var activeNowAnonymous)
+            || !TryReadRequiredIntHeader(response, "x-be-active-now-signed-in", out var activeNowSignedIn)
+            || !TryReadRequiredIntHeader(response, "x-be-total-boards-seen", out var totalBoardsSeen)
+            || !TryReadRequiredIntHeader(response, "x-be-daily-active-devices", out var dailyActiveDevices)
+            || !TryReadRequiredIntHeader(response, "x-be-weekly-active-devices", out var weeklyActiveDevices)
+            || !TryReadRequiredIntHeader(response, "x-be-monthly-active-devices", out var monthlyActiveDevices)
+            || !TryReadRequiredStringHeader(response, "x-be-metrics-updated-at", out var updatedAtRaw)
+            || !DateTimeOffset.TryParse(updatedAtRaw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var updatedAt))
+        {
+            return false;
+        }
+
+        metrics = new BeHomeAggregateMetrics(
+            activeNowTotal,
+            activeNowAnonymous,
+            activeNowSignedIn,
+            totalBoardsSeen,
+            dailyActiveDevices,
+            weeklyActiveDevices,
+            monthlyActiveDevices,
+            updatedAt);
+        return true;
+    }
+
+    private static bool TryReadRequiredIntHeader(HttpResponseMessage response, string name, out int value)
+    {
+        value = 0;
+        return TryReadRequiredStringHeader(response, name, out var rawValue)
+            && int.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryReadRequiredStringHeader(HttpResponseMessage response, string name, out string value)
+    {
+        value = null;
+        if (!response.Headers.TryGetValues(name, out var values))
+        {
+            return false;
+        }
+
+        value = values is null ? null : string.Join(string.Empty, values);
+        return !string.IsNullOrWhiteSpace(value);
     }
 }
 }

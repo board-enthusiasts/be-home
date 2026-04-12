@@ -48,6 +48,38 @@ public sealed class BeHomePresenceCoordinatorTests
         Assert.That(presence.AuthState, Is.EqualTo(BeHomeAuthState.SignedIn));
     }
 
+    [Test]
+    public void ShouldIncludeCommunityMetrics_UsesRecentInteractionWindowAndRouteRules()
+    {
+        DateTimeOffset now = DateTimeOffset.Parse("2026-04-11T03:00:00Z");
+        var coordinator = new BeHomePresenceCoordinator(
+            new StubDeviceIdentityProvider(new BeHomeDeviceIdentity("board-123", BeHomeDeviceIdSource.InstallId)),
+            "1.2.3",
+            "production",
+            "session-abc",
+            () => now,
+            TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(coordinator.ShouldIncludeCommunityMetrics("/internal/be-home/presence"), Is.True);
+            Assert.That(coordinator.ShouldIncludeCommunityMetrics("/internal/be-home/metrics"), Is.True);
+            Assert.That(coordinator.ShouldIncludeCommunityMetrics("/internal/be-home/presence/end"), Is.False);
+        });
+
+        now = now.AddSeconds(6);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(coordinator.ShouldIncludeCommunityMetrics("/internal/be-home/presence"), Is.False);
+            Assert.That(coordinator.ShouldIncludeCommunityMetrics("/internal/be-home/metrics"), Is.True);
+        });
+
+        coordinator.MarkUserInteraction();
+
+        Assert.That(coordinator.ShouldIncludeCommunityMetrics("/internal/be-home/presence"), Is.True);
+    }
+
     private sealed class StubDeviceIdentityProvider : IBeHomeDeviceIdentityProvider
     {
         private readonly BeHomeDeviceIdentity _deviceIdentity;

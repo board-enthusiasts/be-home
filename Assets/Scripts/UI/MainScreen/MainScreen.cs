@@ -53,7 +53,6 @@ public class MainScreen : MonoBehaviour
     public const string QuickYoutubeButtonName = "quick-youtube";
     public const string QuickGptButtonName = "quick-gpt";
     public const string QuickBugReportButtonName = "quick-bug-report";
-    public const string BeHomeActiveSummaryName = "be-home-active-summary";
     public const string QuickLinkOfflineModifierClassName = ClassName + "__quick-link-button--offline";
 
     private const int BrowseLayoutRefreshIntervalMs = 250;
@@ -87,7 +86,6 @@ public class MainScreen : MonoBehaviour
     private VisualElement _browseOverlayLogo;
     private Label _browseOverlayTitle;
     private Label _browseOverlayBody;
-    private Label _beHomeActiveSummary;
     private VisualElement _externalBrowserBackdrop;
     private VisualElement _externalBrowserSurface;
     private VisualElement _externalBrowserHost;
@@ -109,12 +107,9 @@ public class MainScreen : MonoBehaviour
     private readonly BeHomeBrowseNavigationPolicy _browseNavigationPolicy = new BeHomeBrowseNavigationPolicy();
     private BeHomeApiTransport _beHomeApiTransport;
     private IBeHomePresenceService _beHomePresenceService;
-    private IBeHomeMetricsService _beHomeMetricsService;
     private BeHomePresenceCoordinator _beHomePresenceCoordinator;
     private bool _isUiBuilt;
     private bool _isBeHomePresenceRegistrationInFlight;
-    private bool _isBeHomeMetricsInFlight;
-    private bool _hasPendingBeHomeMetricsRefresh;
     private bool _isBeHomeAnalyticsUnavailable;
     private bool _hasLoadedBrowseContent;
     private bool _isBrowseOffline;
@@ -175,7 +170,6 @@ public class MainScreen : MonoBehaviour
         _browseOverlayLogo = _root?.Q<VisualElement>(BrowseOverlayLogoName);
         _browseOverlayTitle = _root?.Q<Label>(BrowseOverlayTitleName);
         _browseOverlayBody = _root?.Q<Label>(BrowseOverlayBodyName);
-        _beHomeActiveSummary = _root?.Q<Label>(BeHomeActiveSummaryName);
         _externalBrowserBackdrop = _root?.Q<VisualElement>(ExternalBrowserBackdropName);
         _externalBrowserSurface = _root?.Q<VisualElement>(ExternalBrowserSurfaceName);
         _externalBrowserHost = _root?.Q<VisualElement>(ExternalBrowserHostName);
@@ -251,7 +245,6 @@ public class MainScreen : MonoBehaviour
             TimeSpan.FromSeconds(BeHomeApiTimeoutSeconds),
             _beHomePresenceCoordinator);
         _beHomePresenceService = new BeHomePresenceService(_beHomeApiTransport);
-        _beHomeMetricsService = new BeHomeMetricsService(_beHomeApiTransport);
     }
 
     private void StartBeHomeAnalytics()
@@ -259,14 +252,12 @@ public class MainScreen : MonoBehaviour
         if (!ShouldRunBeHomeAnalytics()
             || _isBeHomeAnalyticsUnavailable
             || _beHomePresenceCoordinator == null
-            || _beHomePresenceService == null
-            || _beHomeMetricsService == null)
+            || _beHomePresenceService == null)
         {
             return;
         }
 
         RequestBeHomePresenceRegistration();
-        RequestBeHomeMetricsRefresh();
     }
 
     private void StopBeHomeAnalytics()
@@ -298,6 +289,7 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
+        _beHomePresenceCoordinator.MarkUserInteraction();
         StartCoroutine(RegisterBeHomePresenceCoroutine());
     }
 
@@ -325,75 +317,6 @@ public class MainScreen : MonoBehaviour
         }
     }
 
-    private void RequestBeHomeMetricsRefresh(bool force = false)
-    {
-        if (!ShouldRunBeHomeAnalytics()
-            || _isBeHomeAnalyticsUnavailable
-            || !isActiveAndEnabled
-            || _beHomeMetricsService == null
-            || !IsInternetAvailable())
-        {
-            return;
-        }
-
-        if (_isBeHomeMetricsInFlight)
-        {
-            if (force)
-            {
-                _hasPendingBeHomeMetricsRefresh = true;
-            }
-
-            return;
-        }
-
-        StartCoroutine(RefreshBeHomeMetricsCoroutine());
-    }
-
-    private IEnumerator RefreshBeHomeMetricsCoroutine()
-    {
-        _isBeHomeMetricsInFlight = true;
-        var metricsTask = _beHomeMetricsService.GetMetricsAsync(CancellationToken.None);
-        yield return new WaitUntil(() => metricsTask.IsCompleted);
-        _isBeHomeMetricsInFlight = false;
-
-        if (metricsTask.IsCanceled)
-        {
-            yield break;
-        }
-
-        if (metricsTask.IsFaulted)
-        {
-            if (TryDisableBeHomeAnalyticsForMissingRoute(metricsTask.Exception?.GetBaseException()))
-            {
-                yield break;
-            }
-
-            LogBrowseMessage($"BE Home metrics refresh failed: {metricsTask.Exception?.GetBaseException().Message ?? "Unknown error."}");
-            yield break;
-        }
-
-        UpdateBeHomeActiveSummary(metricsTask.GetAwaiter().GetResult());
-
-        if (_hasPendingBeHomeMetricsRefresh)
-        {
-            _hasPendingBeHomeMetricsRefresh = false;
-            RequestBeHomeMetricsRefresh();
-        }
-    }
-
-    private void UpdateBeHomeActiveSummary(BeHomeAggregateMetrics metrics)
-    {
-        if (_beHomeActiveSummary == null || metrics == null)
-        {
-            return;
-        }
-
-        var activeNowTotal = Math.Max(0, metrics.ActiveNowTotal);
-        _beHomeActiveSummary.text = activeNowTotal == 1
-            ? "1 player active in BE Home right now"
-            : $"{activeNowTotal} players active in BE Home right now";
-    }
-
     private async Task EndBeHomePresenceBestEffortAsync(string sessionId)
     {
         try
@@ -416,8 +339,6 @@ public class MainScreen : MonoBehaviour
 
         _isBeHomeAnalyticsUnavailable = true;
         _isBeHomePresenceRegistrationInFlight = false;
-        _isBeHomeMetricsInFlight = false;
-        _hasPendingBeHomeMetricsRefresh = false;
         LogBrowseMessage(
             $"BE Home analytics endpoints are unavailable at {BeHomeProjectSettings.GetConfiguredApiBaseUrl()}. " +
             "Disabling native analytics for this session until the internal API routes are deployed.");
@@ -431,11 +352,8 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
+        _beHomePresenceCoordinator.MarkUserInteraction();
         _beHomePresenceCoordinator.SetAuthState(authState);
-        if (isActiveAndEnabled)
-        {
-            RequestBeHomeMetricsRefresh(force: true);
-        }
     }
 
     private static bool ShouldRunBeHomeAnalytics()
