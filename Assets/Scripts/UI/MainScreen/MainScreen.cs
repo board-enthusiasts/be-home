@@ -59,9 +59,11 @@ public class MainScreen : MonoBehaviour
     private const int BrowseLayoutRefreshIntervalMs = 250;
     private const int BrowseRetryIntervalMs = 10000;
     private const int BrowseOverlayAnimationIntervalMs = 33;
+    private const int BeHomePresenceLeaseCheckIntervalMs = 30000;
     private const int BeHomeApiTimeoutSeconds = 10;
     private const float BrowseOverlayAnimationAngleDegrees = 10f;
     private const float BrowseOverlayAnimationFrequency = 2.5f;
+    private const float BeHomePresenceLeaseRenewAfterSeconds = 120f;
     private const string LoadingOverlayTitle = "Loading...";
     private const string OfflineBrowseMessage = "We can't reach the BE Game Index right now. Make sure you have Wifi connected on your Board";
     private const string ExternalBrowseUnavailableMessage = "We couldn't open that page right now. Please try again.";
@@ -106,7 +108,9 @@ public class MainScreen : MonoBehaviour
     private IVisualElementScheduledItem _browseLayoutRefresh;
     private IVisualElementScheduledItem _browseRetryRefresh;
     private IVisualElementScheduledItem _browseOverlayAnimation;
+    private IVisualElementScheduledItem _beHomePresenceLeaseRefresh;
     private readonly BeHomeBrowseNavigationPolicy _browseNavigationPolicy = new BeHomeBrowseNavigationPolicy();
+    private readonly BeHomePresenceLeasePolicy _beHomePresenceLeasePolicy = new BeHomePresenceLeasePolicy(BeHomePresenceLeaseRenewAfterSeconds);
     private BeHomeApiTransport _beHomeApiTransport;
     private IBeHomePresenceService _beHomePresenceService;
     private BeHomePresenceCoordinator _beHomePresenceCoordinator;
@@ -121,6 +125,7 @@ public class MainScreen : MonoBehaviour
     private string _browsePageUrl;
     private string _browseSiteHost;
     private string _externalBrowseUrl;
+    private float _lastBeHomePresenceRefreshAt;
     private string _lastHostedDiagnosticsSummary;
     private string _lastResolvedBrowseUrl;
     private string _lastBrowseStartedUrl;
@@ -267,10 +272,13 @@ public class MainScreen : MonoBehaviour
         }
 
         RequestBeHomePresenceRegistration();
+        ScheduleBeHomePresenceLeaseRefresh();
     }
 
     private void StopBeHomeAnalytics()
     {
+        _beHomePresenceLeaseRefresh?.Pause();
+
         if (_beHomePresenceCoordinator != null && _beHomePresenceService != null)
         {
             _ = EndBeHomePresenceBestEffortAsync(_beHomePresenceCoordinator.SessionId);
@@ -324,6 +332,10 @@ public class MainScreen : MonoBehaviour
             LogBrowseMessage($"BE Home initial presence registration failed: {registrationTask.Exception?.GetBaseException() ?? new Exception("Unknown error.")}");
             yield break;
         }
+
+        _lastBeHomePresenceRefreshAt = Time.unscaledTime;
+        LogBrowseMessage(
+            $"BE Home presence registration accepted: session={_beHomePresenceCoordinator.SessionId}, authState={_beHomePresenceCoordinator.CurrentAuthState}, env={BeHomeProjectSettings.GetConfiguredAppEnvironmentName()}");
     }
 
     private async Task EndBeHomePresenceBestEffortAsync(string sessionId)
@@ -364,6 +376,47 @@ public class MainScreen : MonoBehaviour
         _beHomePresenceCoordinator.MarkUserInteraction();
         _beHomePresenceCoordinator.SetAuthState(authState);
     }
+
+    private void ScheduleBeHomePresenceLeaseRefresh()
+    {
+        if (_root == null)
+        {
+            return;
+        }
+
+        _beHomePresenceLeaseRefresh ??= _root.schedule.Execute(() =>
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            TryRenewBeHomePresenceLease();
+#endif
+        }).Every(BeHomePresenceLeaseCheckIntervalMs);
+
+        _beHomePresenceLeaseRefresh.Resume();
+    }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    private void TryRenewBeHomePresenceLease()
+    {
+        if (!ShouldRunBeHomeAnalytics()
+            || _isBeHomeAnalyticsUnavailable
+            || !isActiveAndEnabled
+            || _beHomePresenceCoordinator == null
+            || _beHomePresenceService == null
+            || !IsInternetAvailable())
+        {
+            return;
+        }
+
+        if (!_beHomePresenceLeasePolicy.ShouldRenew(_lastBeHomePresenceRefreshAt, Time.unscaledTime, _isBeHomePresenceRegistrationInFlight))
+        {
+            return;
+        }
+
+        _beHomePresenceCoordinator.MarkUserInteraction();
+        LogBrowseMessage($"Renewing BE Home presence lease for session {_beHomePresenceCoordinator.SessionId}.");
+        StartCoroutine(RegisterBeHomePresenceCoroutine());
+    }
+#endif
 
     private static bool ShouldRunBeHomeAnalytics()
     {
@@ -448,6 +501,8 @@ public class MainScreen : MonoBehaviour
         _browseRetryRefresh = null;
         _browseOverlayAnimation?.Pause();
         _browseOverlayAnimation = null;
+        _beHomePresenceLeaseRefresh?.Pause();
+        _beHomePresenceLeaseRefresh = null;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (_browseWebView != null)
