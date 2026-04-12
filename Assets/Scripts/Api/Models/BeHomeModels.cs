@@ -64,19 +64,19 @@ public sealed class BeHomeDeviceIdentity
 }
 
 /// <summary>
-/// Represents an app-facing BE Home presence heartbeat request.
+/// Represents the current BE Home presence snapshot used for registration and passive request headers.
 /// </summary>
-public sealed class BeHomePresenceHeartbeat
+public sealed class BeHomePresenceSnapshot
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="BeHomePresenceHeartbeat"/> class.
+    /// Initializes a new instance of the <see cref="BeHomePresenceSnapshot"/> class.
     /// </summary>
     /// <param name="sessionId">The per-launch BE Home session identifier.</param>
     /// <param name="deviceIdentity">The current device identity for the BE Home install.</param>
     /// <param name="authState">The current BE Home auth state.</param>
     /// <param name="clientVersion">The BE Home client version.</param>
     /// <param name="appEnvironment">The BE environment targeted by this BE Home build.</param>
-    public BeHomePresenceHeartbeat(
+    public BeHomePresenceSnapshot(
         string sessionId,
         BeHomeDeviceIdentity deviceIdentity,
         BeHomeAuthState authState,
@@ -119,56 +119,15 @@ public sealed class BeHomePresenceHeartbeat
 }
 
 /// <summary>
-/// Represents the current BE Home presence session state returned by the backend.
+/// Provides the current BE Home presence snapshot for request registration and passive API headers.
 /// </summary>
-public sealed class BeHomePresenceSessionStatus
+public interface IBeHomePresenceSnapshotProvider
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="BeHomePresenceSessionStatus"/> class.
+    /// Gets the current BE Home presence snapshot.
     /// </summary>
-    /// <param name="sessionId">The current BE Home session identifier.</param>
-    /// <param name="authState">The current BE Home auth state.</param>
-    /// <param name="lastSeenAt">The timestamp of the last accepted heartbeat.</param>
-    /// <param name="heartbeatIntervalSeconds">The recommended heartbeat interval in seconds.</param>
-    /// <param name="activeTtlSeconds">The active-session TTL in seconds.</param>
-    public BeHomePresenceSessionStatus(
-        string sessionId,
-        BeHomeAuthState authState,
-        DateTimeOffset lastSeenAt,
-        int heartbeatIntervalSeconds,
-        int activeTtlSeconds)
-    {
-        SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
-        AuthState = authState;
-        LastSeenAt = lastSeenAt;
-        HeartbeatIntervalSeconds = heartbeatIntervalSeconds;
-        ActiveTtlSeconds = activeTtlSeconds;
-    }
-
-    /// <summary>
-    /// Gets the current BE Home session identifier.
-    /// </summary>
-    public string SessionId { get; }
-
-    /// <summary>
-    /// Gets the current BE Home auth state.
-    /// </summary>
-    public BeHomeAuthState AuthState { get; }
-
-    /// <summary>
-    /// Gets the timestamp of the last accepted heartbeat.
-    /// </summary>
-    public DateTimeOffset LastSeenAt { get; }
-
-    /// <summary>
-    /// Gets the recommended heartbeat interval in seconds.
-    /// </summary>
-    public int HeartbeatIntervalSeconds { get; }
-
-    /// <summary>
-    /// Gets the active-session TTL in seconds.
-    /// </summary>
-    public int ActiveTtlSeconds { get; }
+    /// <returns>The current BE Home presence snapshot.</returns>
+    BeHomePresenceSnapshot CreatePresenceSnapshot();
 }
 
 /// <summary>

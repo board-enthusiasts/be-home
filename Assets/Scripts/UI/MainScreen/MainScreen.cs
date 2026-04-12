@@ -59,7 +59,6 @@ public class MainScreen : MonoBehaviour
     private const int BrowseLayoutRefreshIntervalMs = 250;
     private const int BrowseRetryIntervalMs = 10000;
     private const int BrowseOverlayAnimationIntervalMs = 33;
-    private const int DefaultBeHomeHeartbeatIntervalSeconds = 60;
     private const int BeHomeApiTimeoutSeconds = 10;
     private const float BrowseOverlayAnimationAngleDegrees = 10f;
     private const float BrowseOverlayAnimationFrequency = 2.5f;
@@ -113,17 +112,15 @@ public class MainScreen : MonoBehaviour
     private IBeHomeMetricsService _beHomeMetricsService;
     private BeHomePresenceCoordinator _beHomePresenceCoordinator;
     private bool _isUiBuilt;
-    private bool _isBeHomeHeartbeatInFlight;
+    private bool _isBeHomePresenceRegistrationInFlight;
     private bool _isBeHomeMetricsInFlight;
     private bool _hasPendingBeHomeMetricsRefresh;
     private bool _isBeHomeAnalyticsUnavailable;
-    private bool _hasSentBeHomeHeartbeat;
     private bool _hasLoadedBrowseContent;
     private bool _isBrowseOffline;
     private bool _isExternalBrowserOpen;
     private string _lastHostedBrowseRoute;
     private bool _isExternalNoticeOpen;
-    private int _beHomeHeartbeatIntervalSeconds = DefaultBeHomeHeartbeatIntervalSeconds;
     private string _browsePageUrl;
     private string _browseSiteHost;
     private string _externalBrowseUrl;
@@ -244,16 +241,17 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
-        _beHomeApiTransport = new BeHomeApiTransport(
-            BeHomeProjectSettings.GetConfiguredApiBaseUrl(),
-            new UnityBeHomeJsonSerializer(),
-            TimeSpan.FromSeconds(BeHomeApiTimeoutSeconds));
-        _beHomePresenceService = new BeHomePresenceService(_beHomeApiTransport);
-        _beHomeMetricsService = new BeHomeMetricsService(_beHomeApiTransport);
         _beHomePresenceCoordinator = new BeHomePresenceCoordinator(
             new BeHomeDeviceIdentityProvider(new PlayerPrefsBeHomeInstallIdStore()),
             ResolveClientVersion(),
             BeHomeProjectSettings.GetConfiguredAppEnvironmentName());
+        _beHomeApiTransport = new BeHomeApiTransport(
+            BeHomeProjectSettings.GetConfiguredApiBaseUrl(),
+            new UnityBeHomeJsonSerializer(),
+            TimeSpan.FromSeconds(BeHomeApiTimeoutSeconds),
+            _beHomePresenceCoordinator);
+        _beHomePresenceService = new BeHomePresenceService(_beHomeApiTransport);
+        _beHomeMetricsService = new BeHomeMetricsService(_beHomeApiTransport);
     }
 
     private void StartBeHomeAnalytics()
@@ -267,21 +265,19 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
-        RequestBeHomePresenceHeartbeat();
+        RequestBeHomePresenceRegistration();
         RequestBeHomeMetricsRefresh();
     }
 
     private void StopBeHomeAnalytics()
     {
-        CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
-
-        if (_hasSentBeHomeHeartbeat && _beHomePresenceCoordinator != null && _beHomePresenceService != null)
+        if (_beHomePresenceCoordinator != null && _beHomePresenceService != null)
         {
             _ = EndBeHomePresenceBestEffortAsync(_beHomePresenceCoordinator.SessionId);
         }
     }
 
-    private void RequestBeHomePresenceHeartbeat()
+    private void RequestBeHomePresenceRegistration()
     {
         if (!ShouldRunBeHomeAnalytics()
             || _isBeHomeAnalyticsUnavailable
@@ -292,63 +288,41 @@ public class MainScreen : MonoBehaviour
             return;
         }
 
-        if (_isBeHomeHeartbeatInFlight)
+        if (_isBeHomePresenceRegistrationInFlight)
         {
             return;
         }
 
         if (!IsInternetAvailable())
         {
-            ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
             return;
         }
 
-        StartCoroutine(SendBeHomePresenceHeartbeatCoroutine());
+        StartCoroutine(RegisterBeHomePresenceCoroutine());
     }
 
-    private IEnumerator SendBeHomePresenceHeartbeatCoroutine()
+    private IEnumerator RegisterBeHomePresenceCoroutine()
     {
-        _isBeHomeHeartbeatInFlight = true;
-        var heartbeatTask = _beHomePresenceService.SendHeartbeatAsync(_beHomePresenceCoordinator.CreateHeartbeat(), CancellationToken.None);
-        yield return new WaitUntil(() => heartbeatTask.IsCompleted);
-        _isBeHomeHeartbeatInFlight = false;
+        _isBeHomePresenceRegistrationInFlight = true;
+        var registrationTask = _beHomePresenceService.RegisterSessionAsync(_beHomePresenceCoordinator.CreatePresenceSnapshot(), CancellationToken.None);
+        yield return new WaitUntil(() => registrationTask.IsCompleted);
+        _isBeHomePresenceRegistrationInFlight = false;
 
-        if (heartbeatTask.IsCanceled)
+        if (registrationTask.IsCanceled)
         {
-            ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
             yield break;
         }
 
-        if (heartbeatTask.IsFaulted)
+        if (registrationTask.IsFaulted)
         {
-            if (TryDisableBeHomeAnalyticsForMissingRoute(heartbeatTask.Exception?.GetBaseException()))
+            if (TryDisableBeHomeAnalyticsForMissingRoute(registrationTask.Exception?.GetBaseException()))
             {
                 yield break;
             }
 
-            LogBrowseMessage($"BE Home presence heartbeat failed: {heartbeatTask.Exception?.GetBaseException().Message ?? "Unknown error."}");
-            ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
+            LogBrowseMessage($"BE Home initial presence registration failed: {registrationTask.Exception?.GetBaseException().Message ?? "Unknown error."}");
             yield break;
         }
-
-        var sessionStatus = heartbeatTask.GetAwaiter().GetResult();
-        _hasSentBeHomeHeartbeat = true;
-        _beHomePresenceCoordinator.ApplySessionStatus(sessionStatus);
-        _beHomeHeartbeatIntervalSeconds = _beHomePresenceCoordinator.HeartbeatIntervalSeconds;
-        ScheduleBeHomePresenceHeartbeat(_beHomeHeartbeatIntervalSeconds);
-        RequestBeHomeMetricsRefresh(force: true);
-    }
-
-    private void ScheduleBeHomePresenceHeartbeat(int intervalSeconds)
-    {
-        if (!ShouldRunBeHomeAnalytics() || !isActiveAndEnabled)
-        {
-            return;
-        }
-
-        _beHomeHeartbeatIntervalSeconds = Mathf.Max(1, intervalSeconds);
-        CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
-        Invoke(nameof(RequestBeHomePresenceHeartbeat), _beHomeHeartbeatIntervalSeconds);
     }
 
     private void RequestBeHomeMetricsRefresh(bool force = false)
@@ -441,10 +415,9 @@ public class MainScreen : MonoBehaviour
         }
 
         _isBeHomeAnalyticsUnavailable = true;
-        _isBeHomeHeartbeatInFlight = false;
+        _isBeHomePresenceRegistrationInFlight = false;
         _isBeHomeMetricsInFlight = false;
         _hasPendingBeHomeMetricsRefresh = false;
-        CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
         LogBrowseMessage(
             $"BE Home analytics endpoints are unavailable at {BeHomeProjectSettings.GetConfiguredApiBaseUrl()}. " +
             "Disabling native analytics for this session until the internal API routes are deployed.");
@@ -461,8 +434,7 @@ public class MainScreen : MonoBehaviour
         _beHomePresenceCoordinator.SetAuthState(authState);
         if (isActiveAndEnabled)
         {
-            CancelInvoke(nameof(RequestBeHomePresenceHeartbeat));
-            RequestBeHomePresenceHeartbeat();
+            RequestBeHomeMetricsRefresh(force: true);
         }
     }
 

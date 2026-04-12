@@ -15,12 +15,12 @@ namespace BoardEnthusiasts.BeHome.Api.Services
 public interface IBeHomePresenceService
 {
     /// <summary>
-    /// Sends a presence heartbeat for the current BE Home session.
+    /// Registers the current BE Home session when the native shell first loads.
     /// </summary>
-    /// <param name="heartbeat">The current BE Home presence heartbeat.</param>
+    /// <param name="presence">The current BE Home presence snapshot.</param>
     /// <param name="cancellationToken">The cancellation token for the request.</param>
-    /// <returns>The accepted BE Home session status.</returns>
-    Task<BeHomePresenceSessionStatus> SendHeartbeatAsync(BeHomePresenceHeartbeat heartbeat, CancellationToken cancellationToken = default);
+    /// <returns>A task that completes when the registration request has finished.</returns>
+    Task RegisterSessionAsync(BeHomePresenceSnapshot presence, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends a best-effort disconnect request for the supplied BE Home session.
@@ -63,11 +63,11 @@ public sealed class BeHomePresenceService : IBeHomePresenceService
     }
 
     /// <inheritdoc/>
-    public async Task<BeHomePresenceSessionStatus> SendHeartbeatAsync(BeHomePresenceHeartbeat heartbeat, CancellationToken cancellationToken = default)
+    public async Task RegisterSessionAsync(BeHomePresenceSnapshot presence, CancellationToken cancellationToken = default)
     {
-        if (heartbeat == null)
+        if (presence == null)
         {
-            throw new ArgumentNullException(nameof(heartbeat));
+            throw new ArgumentNullException(nameof(presence));
         }
 
         var response = await _transport
@@ -75,27 +75,20 @@ public sealed class BeHomePresenceService : IBeHomePresenceService
                 PresenceRoute,
                 new BeHomePresenceRequestDto
                 {
-                    sessionId = heartbeat.SessionId,
-                    deviceId = heartbeat.DeviceIdentity.RawIdentifier,
-                    deviceIdSource = MapDeviceIdSource(heartbeat.DeviceIdentity.Source),
-                    authState = MapAuthState(heartbeat.AuthState),
-                    clientVersion = heartbeat.ClientVersion,
-                    appEnvironment = heartbeat.AppEnvironment,
+                    sessionId = presence.SessionId,
+                    deviceId = presence.DeviceIdentity.RawIdentifier,
+                    deviceIdSource = MapDeviceIdSource(presence.DeviceIdentity.Source),
+                    authState = MapAuthState(presence.AuthState),
+                    clientVersion = presence.ClientVersion,
+                    appEnvironment = presence.AppEnvironment,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
 
         if (response == null || !response.accepted || response.session == null)
         {
-            throw new BeHomeApiException("The BE API did not accept the BE Home presence heartbeat.");
+            throw new BeHomeApiException("The BE API did not accept the BE Home initial presence registration.");
         }
-
-        return new BeHomePresenceSessionStatus(
-            response.session.sessionId ?? heartbeat.SessionId,
-            ParseAuthState(response.session.authState),
-            ParseTimestamp(response.session.lastSeenAt, nameof(response.session.lastSeenAt)),
-            Math.Max(1, response.session.heartbeatIntervalSeconds),
-            Math.Max(1, response.session.activeTtlSeconds));
     }
 
     /// <inheritdoc/>
@@ -128,14 +121,6 @@ public sealed class BeHomePresenceService : IBeHomePresenceService
             ? "signed_in"
             : "anonymous";
     }
-
-    private static BeHomeAuthState ParseAuthState(string authState)
-    {
-        return string.Equals(authState, "signed_in", StringComparison.OrdinalIgnoreCase)
-            ? BeHomeAuthState.SignedIn
-            : BeHomeAuthState.Anonymous;
-    }
-
     private static string MapDeviceIdSource(BeHomeDeviceIdSource source)
     {
         return source switch
@@ -143,20 +128,6 @@ public sealed class BeHomePresenceService : IBeHomePresenceService
             BeHomeDeviceIdSource.AndroidSecureAndroidId => "android_secure_android_id",
             _ => "install_id",
         };
-    }
-
-    private static DateTimeOffset ParseTimestamp(string value, string fieldName)
-    {
-        if (DateTimeOffset.TryParse(
-                value,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out var parsed))
-        {
-            return parsed;
-        }
-
-        throw new BeHomeApiException($"The BE API returned an invalid {fieldName} timestamp.");
     }
 }
 

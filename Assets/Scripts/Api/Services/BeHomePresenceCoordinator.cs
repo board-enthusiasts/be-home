@@ -6,9 +6,9 @@ using BoardEnthusiasts.BeHome.Api.Models;
 namespace BoardEnthusiasts.BeHome.Api.Services
 {
 /// <summary>
-/// Coordinates the local BE Home presence session state that drives heartbeat requests.
+/// Coordinates the local BE Home presence session state used for initial registration and passive request headers.
 /// </summary>
-public sealed class BeHomePresenceCoordinator
+public sealed class BeHomePresenceCoordinator : IBeHomePresenceSnapshotProvider
 {
     private readonly BeHomeDeviceIdentity _deviceIdentity;
     private readonly string _clientVersion;
@@ -39,8 +39,6 @@ public sealed class BeHomePresenceCoordinator
             ? sessionId
             : Guid.NewGuid().ToString("N");
         CurrentAuthState = BeHomeAuthState.Anonymous;
-        HeartbeatIntervalSeconds = 60;
-        ActiveTtlSeconds = 180;
     }
 
     /// <summary>
@@ -54,52 +52,19 @@ public sealed class BeHomePresenceCoordinator
     public BeHomeAuthState CurrentAuthState { get; private set; }
 
     /// <summary>
-    /// Gets the recommended heartbeat interval in seconds.
-    /// </summary>
-    public int HeartbeatIntervalSeconds { get; private set; }
-
-    /// <summary>
-    /// Gets the active-session TTL in seconds.
-    /// </summary>
-    public int ActiveTtlSeconds { get; private set; }
-
-    /// <summary>
-    /// Updates the current BE Home auth state.
-    /// </summary>
-    /// <param name="authState">The new mirrored auth state.</param>
+    /// <inheritdoc/>
     public void SetAuthState(BeHomeAuthState authState)
     {
         CurrentAuthState = authState;
     }
 
     /// <summary>
-    /// Builds the next BE Home heartbeat payload from the current local session state.
+    /// Builds the current BE Home presence snapshot from the local session state.
     /// </summary>
-    /// <returns>The next presence heartbeat payload.</returns>
-    public BeHomePresenceHeartbeat CreateHeartbeat()
+    /// <returns>The current BE Home presence snapshot.</returns>
+    public BeHomePresenceSnapshot CreatePresenceSnapshot()
     {
-        return new BeHomePresenceHeartbeat(SessionId, _deviceIdentity, CurrentAuthState, _clientVersion, _appEnvironment);
-    }
-
-    /// <summary>
-    /// Applies the accepted session status returned by the backend.
-    /// </summary>
-    /// <param name="sessionStatus">The accepted session status returned by the backend.</param>
-    public void ApplySessionStatus(BeHomePresenceSessionStatus sessionStatus)
-    {
-        if (sessionStatus == null)
-        {
-            throw new ArgumentNullException(nameof(sessionStatus));
-        }
-
-        if (!string.Equals(sessionStatus.SessionId, SessionId, StringComparison.Ordinal))
-        {
-            throw new ArgumentException("The session status does not match the current BE Home session.", nameof(sessionStatus));
-        }
-
-        CurrentAuthState = sessionStatus.AuthState;
-        HeartbeatIntervalSeconds = Math.Max(1, sessionStatus.HeartbeatIntervalSeconds);
-        ActiveTtlSeconds = Math.Max(1, sessionStatus.ActiveTtlSeconds);
+        return new BeHomePresenceSnapshot(SessionId, _deviceIdentity, CurrentAuthState, _clientVersion, _appEnvironment);
     }
 }
 }

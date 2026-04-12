@@ -3,7 +3,7 @@ using System;
 namespace BoardEnthusiasts.BeHome.Api.Contracts
 {
 /// <summary>
-/// Wire-format request payload for a BE Home presence heartbeat.
+/// Wire-format request payload for an initial BE Home presence registration.
 /// </summary>
 [Serializable]
 public sealed class BeHomePresenceRequestDto
@@ -40,13 +40,13 @@ public sealed class BeHomePresenceRequestDto
 }
 
 /// <summary>
-/// Wire-format response payload for a BE Home presence heartbeat.
+/// Wire-format response payload for an initial BE Home presence registration.
 /// </summary>
 [Serializable]
 public sealed class BeHomePresenceResponseDto
 {
     /// <summary>
-    /// Indicates whether the backend accepted the heartbeat.
+    /// Indicates whether the backend accepted the registration.
     /// </summary>
     public bool accepted;
 
@@ -57,7 +57,7 @@ public sealed class BeHomePresenceResponseDto
 }
 
 /// <summary>
-/// Wire-format session state returned for a BE Home presence heartbeat.
+/// Wire-format session state returned for an initial BE Home presence registration.
 /// </summary>
 [Serializable]
 public sealed class BeHomePresenceSessionDto
@@ -73,7 +73,7 @@ public sealed class BeHomePresenceSessionDto
     public string authState;
 
     /// <summary>
-    /// The timestamp of the last accepted heartbeat.
+    /// The timestamp of the last accepted presence update.
     /// </summary>
     public string lastSeenAt;
 

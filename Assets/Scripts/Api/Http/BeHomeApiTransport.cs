@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using BoardEnthusiasts.BeHome.Api.Models;
+
 using UnityEngine;
 
 namespace BoardEnthusiasts.BeHome.Api.Http
@@ -115,9 +117,12 @@ public sealed class UnityBeHomeJsonSerializer : IBeHomeJsonSerializer
 /// </summary>
 public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
 {
+    private const string PresenceRoute = "/internal/be-home/presence";
+    private const string PresenceEndRoute = "/internal/be-home/presence/end";
     private readonly Uri _baseUri;
     private readonly HttpClient _httpClient;
     private readonly IBeHomeJsonSerializer _jsonSerializer;
+    private readonly IBeHomePresenceSnapshotProvider _presenceSnapshotProvider;
     private readonly bool _disposeHttpClient;
 
     /// <summary>
@@ -126,8 +131,14 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
     /// <param name="apiBaseUrl">The maintained BE API base URL.</param>
     /// <param name="jsonSerializer">The JSON serializer used for request and response payloads.</param>
     /// <param name="timeout">The request timeout to apply to transport calls.</param>
+    /// <param name="presenceSnapshotProvider">The optional BE Home presence snapshot provider used to attach passive presence headers.</param>
     /// <param name="httpClient">The optional HTTP client to reuse for transport calls.</param>
-    public BeHomeApiTransport(string apiBaseUrl, IBeHomeJsonSerializer jsonSerializer, TimeSpan timeout, HttpClient httpClient = null)
+    public BeHomeApiTransport(
+        string apiBaseUrl,
+        IBeHomeJsonSerializer jsonSerializer,
+        TimeSpan timeout,
+        IBeHomePresenceSnapshotProvider presenceSnapshotProvider = null,
+        HttpClient httpClient = null)
     {
         if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out _baseUri))
         {
@@ -135,6 +146,7 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
         }
 
         _jsonSerializer = jsonSerializer ?? throw new ArgumentNullException(nameof(jsonSerializer));
+        _presenceSnapshotProvider = presenceSnapshotProvider;
         _httpClient = httpClient ?? new HttpClient();
         _httpClient.Timeout = timeout;
         _disposeHttpClient = httpClient == null;
@@ -177,7 +189,38 @@ public sealed class BeHomeApiTransport : IBeHomeApiTransport, IDisposable
         var request = new HttpRequestMessage(method, new Uri(_baseUri, relativePath.TrimStart('/')));
         request.Headers.Accept.Clear();
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        AppendPassivePresenceHeaders(request, relativePath);
         return request;
+    }
+
+    private void AppendPassivePresenceHeaders(HttpRequestMessage request, string relativePath)
+    {
+        if (_presenceSnapshotProvider == null
+            || string.Equals(relativePath, PresenceRoute, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(relativePath, PresenceEndRoute, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var snapshot = _presenceSnapshotProvider.CreatePresenceSnapshot();
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        request.Headers.TryAddWithoutValidation("x-be-home-session-id", snapshot.SessionId);
+        request.Headers.TryAddWithoutValidation("x-be-home-device-id", snapshot.DeviceIdentity.RawIdentifier);
+        request.Headers.TryAddWithoutValidation("x-be-home-device-id-source", MapDeviceIdSource(snapshot.DeviceIdentity.Source));
+        request.Headers.TryAddWithoutValidation("x-be-home-auth-state", snapshot.AuthState == BeHomeAuthState.SignedIn ? "signed_in" : "anonymous");
+        request.Headers.TryAddWithoutValidation("x-be-home-client-version", snapshot.ClientVersion);
+        request.Headers.TryAddWithoutValidation("x-be-home-app-environment", snapshot.AppEnvironment);
+    }
+
+    private static string MapDeviceIdSource(BeHomeDeviceIdSource source)
+    {
+        return source == BeHomeDeviceIdSource.AndroidSecureAndroidId
+            ? "android_secure_android_id"
+            : "install_id";
     }
 
     private async Task<TResponse> ReadResponseAsync<TResponse>(HttpResponseMessage response, CancellationToken cancellationToken)

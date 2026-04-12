@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BeHome.Api.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a815a28479b3821b5c8ac89b9997079a2bcfba47")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4dffec7840f009e626de5be671181f3edaff99ff")]
 [assembly: System.Reflection.AssemblyProductAttribute("BeHome.Api.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BeHome.Api.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
